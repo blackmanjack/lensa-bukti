@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LensaBukti · Forensik Gambar &amp; Deteksi Manipulasi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0d1319;
+  --panel:#151d26;
+  --panel2:#1a2430;
+  --line:#273441;
+  --paper:#e9eef3;
+  --dim:#8b9aa9;
+  --tag:#f2b32c;        /* kuning label barang bukti */
+  --tag-ink:#231a02;
+  --ok:#4cc38a;
+  --warn:#f2b32c;
+  --danger:#ef6351;
+  --info:#6aa9ff;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Space Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--ink);color:var(--paper);font-family:var(--disp);font-size:15px;line-height:1.55}
+::selection{background:var(--tag);color:var(--tag-ink)}
+a{color:var(--info)}
+button{font-family:inherit}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* ---------- header ---------- */
+header{border-bottom:1px solid var(--line);padding:26px 0 22px;position:relative;overflow:hidden}
+header::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:44px 44px;opacity:.16}
+.brandrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:relative;z-index:1}
+.badge{background:var(--tag);color:var(--tag-ink);font-family:var(--mono);font-weight:600;font-size:12px;
+  padding:6px 10px;border-radius:4px;letter-spacing:.08em;transform:rotate(-2deg);box-shadow:0 2px 0 rgba(0,0,0,.35)}
+h1{font-size:clamp(24px,4vw,36px);font-weight:700;letter-spacing:-.01em}
+.sub{color:var(--dim);margin-top:8px;max-width:64ch;position:relative;z-index:1}
+.privasi{display:inline-flex;align-items:center;gap:8px;margin-top:12px;font-family:var(--mono);font-size:12px;
+  color:var(--ok);border:1px solid rgba(76,195,138,.35);border-radius:999px;padding:5px 12px;position:relative;z-index:1}
+.dotok{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+
+/* ---------- dropzone ---------- */
+#dropzone{margin:26px 0;border:2px dashed var(--line);border-radius:var(--radius);background:var(--panel);
+  padding:46px 24px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+#dropzone:hover,#dropzone.dragover{border-color:var(--tag);background:var(--panel2)}
+#dropzone .big{font-size:18px;font-weight:500}
+#dropzone .hint{color:var(--dim);font-size:13px;margin-top:8px;font-family:var(--mono)}
+#fileInput{display:none}
+
+/* ---------- layout hasil ---------- */
+#result{display:none;margin:10px 0 40px}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:22px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.panel h2{font-size:12px;font-family:var(--mono);font-weight:600;letter-spacing:.12em;color:var(--dim);
+  text-transform:uppercase;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.panel h2 .num{color:var(--tag)}
+.panel .body{padding:16px}
+
+/* ---------- viewer ---------- */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.tab{background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:6px;
+  padding:7px 13px;font-size:13px;cursor:pointer;font-family:var(--mono)}
+.tab:hover{color:var(--paper)}
+.tab.active{background:var(--tag);border-color:var(--tag);color:var(--tag-ink);font-weight:600}
+.viewerbox{position:relative;background:
+  repeating-conic-gradient(#10161d 0 25%,#0b1015 0 50%) 0 0/22px 22px;
+  display:flex;align-items:center;justify-content:center;min-height:280px;overflow:hidden;touch-action:none}
+#viewCanvas{max-width:100%;max-height:560px;display:block;cursor:crosshair}
+#loupe{position:absolute;width:170px;height:170px;border:2px solid var(--tag);border-radius:50%;
+  pointer-events:none;display:none;box-shadow:0 6px 24px rgba(0,0,0,.55);background:#000;z-index:5}
+#loupe canvas{width:100%;height:100%;border-radius:50%}
+.controls{display:flex;flex-wrap:wrap;gap:18px;padding:14px 16px;border-top:1px solid var(--line);align-items:center}
+.ctrl{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--dim);font-family:var(--mono)}
+.ctrl input[type=range]{accent-color:var(--tag);width:130px}
+.ctrl .val{color:var(--paper);min-width:34px;text-align:right}
+.switch{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.modehelp{padding:12px 16px;font-size:13px;color:var(--dim);border-top:1px dashed var(--line);line-height:1.6}
+.modehelp b{color:var(--paper);font-weight:500}
+
+/* ---------- c2pa panel ---------- */
+.creator-card{background:linear-gradient(135deg,rgba(242,179,44,.14),rgba(242,179,44,.04));
+  border:1px solid rgba(242,179,44,.5);border-left:6px solid var(--tag);border-radius:8px;
+  padding:14px 16px;margin-bottom:14px}
+.creator-card .cc-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--tag);margin-bottom:4px}
+.creator-card .cc-name{font-size:20px;font-weight:700;letter-spacing:-.01em;line-height:1.25;word-break:break-word}
+.creator-card .cc-by{font-size:12.5px;color:var(--dim);margin-top:6px;line-height:1.5}
+.creator-card .cc-by b{color:var(--paper);font-weight:500}
+.chip{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px}
+.chip.ok{background:rgba(76,195,138,.15);color:var(--ok);border:1px solid rgba(76,195,138,.4)}
+.chip.bad{background:rgba(239,99,81,.15);color:var(--danger);border:1px solid rgba(239,99,81,.45)}
+.chip.unk{background:rgba(139,154,169,.12);color:var(--dim);border:1px solid var(--line)}
+.aiflag{background:rgba(239,99,81,.12);border:1px solid rgba(239,99,81,.45);color:var(--danger);
+  border-radius:8px;padding:10px 14px;margin-bottom:12px;font-weight:600;font-size:14px}
+.aiflag .aisub{font-family:var(--mono);font-weight:400;font-size:11.5px;color:var(--dim);margin-top:4px;word-break:break-all}
+
+/* ---------- compare bar ---------- */
+.comparebar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+  padding:11px 16px;border-bottom:1px solid var(--line);background:rgba(242,179,44,.05);font-size:13px;color:var(--dim)}
+.comparebar span{flex:1;min-width:220px}
+.comparebar button{background:transparent;border:1px solid var(--tag);color:var(--tag);border-radius:6px;
+  padding:7px 13px;font-size:13px;cursor:pointer;font-family:var(--mono);white-space:nowrap}
+.comparebar button:hover{background:var(--tag);color:var(--tag-ink)}
+
+/* ---------- findings ---------- */
+.finding{display:flex;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:var(--panel2)}
+.finding:last-child{margin-bottom:0}
+.sev{flex:none;width:10px;border-radius:4px}
+.sev.danger{background:var(--danger)}.sev.warn{background:var(--warn)}.sev.info{background:var(--info)}.sev.ok{background:var(--ok)}
+.finding .t{font-weight:500;font-size:14px}
+.finding .d{color:var(--dim);font-size:13px;margin-top:3px;line-height:1.5;word-break:break-word}
+.finding .d code{font-family:var(--mono);font-size:12px;color:var(--paper);background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px}
+
+/* ---------- metadata ---------- */
+table.meta{width:100%;border-collapse:collapse;font-size:13px}
+table.meta td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-word}
+table.meta td:first-child{color:var(--dim);font-family:var(--mono);font-size:12px;white-space:nowrap;width:38%}
+table.meta tr:last-child td{border-bottom:none}
+.empty{color:var(--dim);font-size:13px;font-style:italic}
+
+/* ---------- tips ---------- */
+details.tips{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);margin-top:22px}
+details.tips summary{cursor:pointer;padding:14px 16px;font-family:var(--mono);font-size:13px;letter-spacing:.06em;color:var(--tag);list-style:none}
+details.tips summary::before{content:"▸ ";}
+details.tips[open] summary::before{content:"▾ ";}
+details.tips .body{padding:0 16px 16px;color:var(--dim);font-size:14px;line-height:1.7}
+details.tips .body strong{color:var(--paper);font-weight:500}
+details.tips ul{padding-left:20px;margin:8px 0}
+details.tips li{margin-bottom:6px}
+
+footer{border-top:1px solid var(--line);margin-top:30px;padding:20px 0 34px;color:var(--dim);font-size:12.5px;line-height:1.7}
+footer .wrap{max-width:1180px}
+
+#btnReset{background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:6px;
+  padding:8px 14px;font-size:13px;cursor:pointer;font-family:var(--mono);margin-bottom:16px}
+#btnReset:hover{color:var(--paper);border-color:var(--dim)}
+
+/* ---------- ringkasan eksekutif ---------- */
+.summarypanel{margin-bottom:14px}
+.verdict{display:flex;align-items:center;gap:12px;border-radius:10px;padding:14px 18px;margin-bottom:16px;
+  font-size:17px;font-weight:700;letter-spacing:-.01em}
+.verdict .vicon{font-size:26px}
+.verdict.v-danger{background:rgba(239,99,81,.14);border:1px solid rgba(239,99,81,.5);color:var(--danger)}
+.verdict.v-warn{background:rgba(242,179,44,.12);border:1px solid rgba(242,179,44,.5);color:var(--warn)}
+.verdict.v-ok{background:rgba(76,195,138,.12);border:1px solid rgba(76,195,138,.45);color:var(--ok)}
+ul.sumlist{list-style:none;display:flex;flex-direction:column;gap:10px}
+ul.sumlist li{display:flex;gap:12px;font-size:15px;line-height:1.6;color:var(--paper)}
+ul.sumlist li .sic{flex:none;width:24px;text-align:center;font-size:16px;padding-top:1px}
+ul.sumlist li b{font-weight:600}
+ul.sumlist li code{font-family:var(--mono);font-size:12.5px;background:rgba(255,255,255,.07);padding:1px 6px;border-radius:4px}
+
+#btnAdvanced{background:transparent;border:1px dashed var(--line);color:var(--dim);border-radius:8px;
+  padding:10px 16px;font-size:13px;cursor:pointer;font-family:var(--mono);margin:2px 0 20px;width:100%}
+#btnAdvanced:hover{color:var(--tag);border-color:var(--tag)}
+
+/* mode sederhana: sembunyikan semua yang teknis */
+#result.simple .rightcol{display:none}
+#result.simple .grid{grid-template-columns:1fr}
+#result.simple .tab.tech{display:none}
+#result.simple .modehelp{display:none}
+#result.simple details.tips{display:none}
+
+.filechip{display:flex;flex-wrap:wrap;gap:10px 22px;font-family:var(--mono);font-size:12.5px;color:var(--dim);
+  padding:12px 16px;border-bottom:1px solid var(--line)}
+.filechip b{color:var(--paper);font-weight:500}
+@media(prefers-reduced-motion:no-preference){
+  .finding{animation:fadein .25s ease both}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brandrow">
+      <span class="badge">BARANG BUKTI № 001</span>
+      <h1>LensaBukti · Lab Forensik Gambar</h1>
+    </div>
+    <p class="sub">Periksa keaslian screenshot bukti transaksi: deteksi jejak editing (Photoshop/GIMP), indikasi AI generatif, analisis metadata EXIF &amp; C2PA, dan <em>Error Level Analysis</em> untuk menemukan area nominal yang diubah.</p>
+    <span class="privasi"><span class="dotok"></span> 100% diproses di browser Anda, file tidak pernah dikirim ke server</span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div id="dropzone">
+    <div class="big">Tarik &amp; letakkan gambar di sini, atau klik untuk memilih file</div>
+    <div class="hint">JPG · PNG · WEBP, misalnya screenshot bukti transfer m-banking</div>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <section id="result" class="simple">
+    <button id="btnReset">← Periksa gambar lain</button>
+
+    <div class="panel summarypanel">
+      <h2><span class="num">✦</span> Ringkasan Pemeriksaan</h2>
+      <div class="body" id="summary"></div>
+    </div>
+    <button id="btnAdvanced">Tampilkan Detail Teknis ▾</button>
+
+    <div class="grid">
+
+      <!-- ===== KIRI: MEJA PEMERIKSAAN ===== -->
+      <div class="panel">
+        <h2><span class="num">01</span> Meja Pemeriksaan</h2>
+        <div class="filechip" id="fileInfo"></div>
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-mode="original">Asli</button>
+          <button class="tab tech" data-mode="ela">ELA</button>
+          <button class="tab tech" data-mode="noise">Noise</button>
+          <button class="tab tech" data-mode="chR">Kanal R</button>
+          <button class="tab tech" data-mode="chG">Kanal G</button>
+          <button class="tab tech" data-mode="chB">Kanal B</button>
+          <button class="tab" data-mode="compare" id="tabCompare" style="display:none">⚡ Banding</button>
+        </div>
+        <div class="comparebar" id="comparebar">
+          <span>Punya versi lain dari bukti yang sama? Bandingkan piksel-per-piksel untuk melokalisasi manipulasi, metode paling akurat.</span>
+          <button id="btnCompare">＋ Bandingkan dengan gambar lain</button>
+          <input type="file" id="cmpInput" accept="image/*" style="display:none">
+        </div>
+        <div class="viewerbox" id="viewerbox">
+          <canvas id="viewCanvas"></canvas>
+          <div id="loupe"><canvas id="loupeCanvas" width="340" height="340"></canvas></div>
+        </div>
+        <div class="controls">
+          <label class="ctrl switch"><input type="checkbox" id="loupeToggle" checked> Kaca pembesar</label>
+          <label class="ctrl">Zoom <input type="range" id="loupeZoom" min="2" max="10" value="4"><span class="val" id="loupeZoomVal">4×</span></label>
+          <label class="ctrl" id="elaQualWrap" style="display:none">Kualitas JPEG <input type="range" id="elaQuality" min="50" max="95" value="75"><span class="val" id="elaQualityVal">75</span></label>
+          <label class="ctrl" id="elaAmpWrap" style="display:none">Amplifikasi <input type="range" id="elaAmp" min="5" max="40" value="18"><span class="val" id="elaAmpVal">18</span></label>
+        </div>
+        <div class="modehelp" id="modehelp"></div>
+      </div>
+
+      <!-- ===== KANAN: TEMUAN & METADATA ===== -->
+      <div class="rightcol">
+        <div class="panel" style="margin-bottom:22px">
+          <h2><span class="num">02</span> Temuan Otomatis</h2>
+          <div class="body" id="findings"></div>
+        </div>
+        <div class="panel" style="margin-bottom:22px">
+          <h2><span class="num">03</span> Content Credentials (C2PA)</h2>
+          <div class="body" id="c2paPanel"></div>
+        </div>
+        <div class="panel">
+          <h2><span class="num">04</span> Metadata File</h2>
+          <div class="body"><table class="meta" id="metaTable"></table></div>
+        </div>
+      </div>
+    </div>
+
+    <details class="tips">
+      <summary>PANDUAN INSPEKSI MANUAL, cara membaca hasil &amp; ciri bukti transfer palsu</summary>
+      <div class="body">
+        <p><strong>Mode Banding (paling akurat):</strong> jika Anda punya dua versi bukti yang sama (mis. dari pengirim dan dari sistem Anda), mode ini melokalisasi persis piksel mana yang berubah, bahkan pada gambar WhatsApp tanpa metadata. Tiga pola hasilnya: <strong>(a)</strong> kotak kuning tepat di nominal = nominal diganti; <strong>(b)</strong> dimensi kedua gambar berbeda walau 1 piksel = salah satu di-render ulang; <strong>(c)</strong> semua teks "bergetar" halus tapi background identik = ciri khas editing AI generatif yang me-render ulang seluruh gambar. Pola (c) inilah alasan ELA satu-gambar sering gagal mendeteksi editan AI: tidak ada tambalan lokal, seluruh piksel sama-sama baru.</p>
+        <p><strong>Membaca ELA (Error Level Analysis):</strong> gambar dikompresi ulang sebagai JPEG, lalu selisihnya diperkuat. Area yang <strong>baru diedit</strong> (mis. angka nominal yang diganti) cenderung tampil <strong>lebih terang/berbeda tekstur</strong> dibanding teks lain yang setara. Perhatikan: semua teks tajam memang lebih terang dari background, yang mencurigakan adalah jika <em>satu baris nominal</em> menyala berbeda dibanding teks lain yang sejenis. ELA kurang andal pada gambar yang sudah dikompresi berkali-kali (mis. dikirim via WhatsApp).</p>
+        <p><strong>Membaca Noise:</strong> pola noise/bintik seharusnya merata. "Tambalan" yang terlalu halus atau terlalu kasar di sekitar nominal bisa menandakan penggunaan brush, clone stamp, atau AI inpainting.</p>
+        <p><strong>Inspeksi manual dengan kaca pembesar (mode Asli):</strong></p>
+        <ul>
+          <li><strong>Tipografi:</strong> bandingkan font, ketebalan, dan jarak antar-huruf (kerning) angka nominal dengan angka lain di layar (tanggal, no. referensi). Font sistem bank sulit ditiru persis.</li>
+          <li><strong>Artefak piksel:</strong> tepi angka yang diubah sering lebih buram, pecah, atau ber-"kotak" dibanding teks lain.</li>
+          <li><strong>Background:</strong> cari bayangan putih/abu tipis atau perbedaan warna halus di belakang nominal, sisa penghapusan angka asli. Mode <strong>Kanal R/G/B</strong> membantu memunculkan perbedaan warna yang tak kasat mata.</li>
+          <li><strong>Logika data:</strong> cocokkan nomor referensi ke sistem bank/payment gateway. Verifikasi mutasi rekening tetap merupakan bukti terkuat, screenshot apa pun bisa dipalsukan.</li>
+        </ul>
+        <p><strong>Metadata &amp; asal-usul:</strong> jejak <code>Adobe Photoshop</code>/<code>GIMP</code> pada metadata adalah indikasi kuat file pernah disimpan dari software editing. Jika file membawa <strong>Content Credentials (C2PA)</strong>, tools ini memverifikasinya langsung di panel 03: label AI, identitas penandatangan, integritas piksel (hash), dan tanda tangan digital, setara pemeriksaan verify.contentauthenticity.org, tanpa file keluar dari perangkat Anda. Screenshot asli dari HP umumnya <em>tidak</em> memiliki EXIF kamera, ketiadaan metadata bukan bukti manipulasi, tapi keberadaan jejak software editing patut dicurigai.</p>
+        <p><strong>Batas deteksi AI pada kiriman WhatsApp (penting):</strong> WhatsApp menghapus C2PA dan seluruh metadata lalu mengkompresi ulang piksel. Akibatnya <em>tidak ada tools apa pun</em>, termasuk verifier resmi, yang bisa memastikan asal AI dari metadata file kiriman WA. Watermark tak kasat mata seperti SynthID (Google) memang dirancang bertahan dari kompresi, tapi detektornya tertutup dan hanya bisa diakses lewat portal resmi, bukan pihak ketiga. Strategi realistis: <strong>(1)</strong> minta file asli dikirim sebagai dokumen agar credentials selamat, <strong>(2)</strong> gunakan Mode Banding bila ada versi pembanding, <strong>(3)</strong> verifikasi prosedural, nomor referensi ke sistem bank dan mutasi rekening.</p>
+      </div>
+    </details>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <strong style="color:var(--paper)">Batasan penting:</strong> semua metode di sini bersifat indikatif (forensik heuristik), bukan bukti hukum yang konklusif. Manipulasi yang rapi bisa lolos, dan gambar asli yang dikompresi berulang bisa tampak "mencurigakan". Untuk keputusan penting (penipuan, sengketa pembayaran), selalu verifikasi ke sumber utamanya: mutasi rekening, sistem payment gateway, atau pihak bank.
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+/* ================= C2PA NATIVE PARSER (murni JS, tanpa dependensi) =================
+   Membaca Content Credentials: JUMBF -> manifest -> claim/assertions/signature.
+   Verifikasi: hash konten (hard binding) + tanda tangan COSE via WebCrypto.       */
+
+/* ---------- CBOR decoder minimal ---------- */
+function cborDecode(u8, start=0){
+  let p=start;
+  const rd=()=>u8[p++];
+  const BREAK=Symbol('break');
+  function len(ai){
+    if(ai<24) return ai;
+    if(ai===24) return rd();
+    if(ai===25){const v=(u8[p]<<8)|u8[p+1];p+=2;return v;}
+    if(ai===26){const v=((u8[p]<<24)|(u8[p+1]<<16)|(u8[p+2]<<8)|u8[p+3])>>>0;p+=4;return v;}
+    if(ai===27){let v=0;for(let i=0;i<8;i++)v=v*256+u8[p+i];p+=8;return v;}
+    throw new Error('cbor len ai='+ai);
+  }
+  function item(){
+    const b=rd(), mt=b>>5, ai=b&31;
+    switch(mt){
+      case 0: return len(ai);
+      case 1: return -1-len(ai);
+      case 2: {
+        if(ai===31){const parts=[];let it;while((it=item())!==BREAK)parts.push(it);
+          let n=0;for(const q of parts)n+=q.length;const out=new Uint8Array(n);let o=0;
+          for(const q of parts){out.set(q,o);o+=q.length;}return out;}
+        const n=len(ai);const v=u8.slice(p,p+n);p+=n;return v;}
+      case 3: {
+        if(ai===31){let s='';let it;while((it=item())!==BREAK)s+=it;return s;}
+        const n=len(ai);const v=new TextDecoder().decode(u8.slice(p,p+n));p+=n;return v;}
+      case 4: {
+        if(ai===31){const a=[];let it;while((it=item())!==BREAK)a.push(it);return a;}
+        const n=len(ai);const a=[];for(let i=0;i<n;i++)a.push(item());return a;}
+      case 5: {
+        if(ai===31){const m={};for(;;){const k=item();if(k===BREAK)break;m[k]=item();}return m;}
+        const n=len(ai);const m={};for(let i=0;i<n;i++){const k=item();m[k]=item();}return m;}
+      case 6: {len(ai);return item();} // tag: buang, ambil isinya
+      case 7:
+        if(ai===20)return false; if(ai===21)return true; if(ai===22||ai===23)return null;
+        if(ai===25){p+=2;return null;} if(ai===26){p+=4;return null;} if(ai===27){p+=8;return null;}
+        if(ai===31)return BREAK;
+        return null;
+    }
+  }
+  const v=item();
+  return {value:v, end:p};
+}
+
+/* ---------- JUMBF box parser ---------- */
+function parseBoxes(u8, start, end){
+  const boxes=[]; let p=start;
+  while(p+8<=end){
+    let size=((u8[p]<<24)|(u8[p+1]<<16)|(u8[p+2]<<8)|u8[p+3])>>>0;
+    const type=String.fromCharCode(u8[p+4],u8[p+5],u8[p+6],u8[p+7]);
+    let hdr=8;
+    if(size===1){ // largesize 64-bit
+      size=0; for(let i=0;i<8;i++) size=size*256+u8[p+8+i];
+      hdr=16;
+    } else if(size===0){ size=end-p; }
+    if(size<hdr || p+size>end) break;
+    boxes.push({type, dataStart:p+hdr, dataEnd:p+size+p>end?end:p+size, start:p, size});
+    boxes[boxes.length-1].dataEnd=p+size;
+    p+=size;
+  }
+  return boxes;
+}
+
+function parseJumbSuper(u8, start, end){
+  const kids=parseBoxes(u8,start,end);
+  const node={label:null, uuid:null, contents:[], children:[]};
+  for(const b of kids){
+    if(b.type==='jumd'){
+      let q=b.dataStart;
+      node.uuid=[...u8.slice(q,q+16)].map(x=>x.toString(16).padStart(2,'0')).join('');
+      q+=16;
+      const toggles=u8[q++];
+      if(toggles&2){ // label ada
+        let s=q; while(q<b.dataEnd && u8[q]!==0) q++;
+        node.label=new TextDecoder().decode(u8.slice(s,q)); q++;
+      }
+    } else if(b.type==='jumb'){
+      node.children.push(parseJumbSuper(u8,b.dataStart,b.dataEnd));
+    } else {
+      node.contents.push({type:b.type, start:b.dataStart, end:b.dataEnd});
+    }
+  }
+  return node;
+}
+
+/* ---------- Ekstraksi JUMBF dari JPEG (APP11) & PNG (caBX) ---------- */
+function extractJumbf(bytes){
+  if(bytes[0]===0xFF&&bytes[1]===0xD8) return extractJumbfJpeg(bytes);
+  if(bytes[0]===0x89&&bytes[1]===0x50) return extractJumbfPng(bytes);
+  return null;
+}
+function extractJumbfJpeg(b){
+  const groups={}; // En -> [{z, payload}]
+  let i=2;
+  while(i+4<b.length){
+    if(b[i]!==0xFF) break;
+    const marker=b[i+1];
+    if(marker===0xD9||marker===0xDA) break;
+    const len=(b[i+2]<<8)|b[i+3];
+    const s=i+4, e=i+2+len;
+    if(marker===0xEB && b[s]===0x4A && b[s+1]===0x50){ // 'JP'
+      const en=(b[s+2]<<8)|b[s+3];
+      const z=((b[s+4]<<24)|(b[s+5]<<16)|(b[s+6]<<8)|b[s+7])>>>0;
+      (groups[en]=groups[en]||[]).push({z, payload:b.slice(s+8,e)});
+    }
+    i=e;
+  }
+  const ens=Object.keys(groups);
+  if(!ens.length) return null;
+  // gabungkan per En, urut Z; chunk lanjutan mengulang header LBox/TBox superbox
+  let out=null;
+  for(const en of ens){
+    const parts=groups[en].sort((a,b2)=>a.z-b2.z);
+    let total=parts[0].payload;
+    for(let k=1;k<parts.length;k++){
+      let pl=parts[k].payload;
+      // buang pengulangan header 8-byte (LBox+TBox 'jumb') bila ada
+      if(pl.length>8 && String.fromCharCode(pl[4],pl[5],pl[6],pl[7])==='jumb') pl=pl.slice(8);
+      const merged=new Uint8Array(total.length+pl.length);
+      merged.set(total); merged.set(pl,total.length);
+      total=merged;
+    }
+    // perbaiki LBox agar sesuai panjang aktual
+    if(total.length>8){
+      total[0]=(total.length>>>24)&255; total[1]=(total.length>>>16)&255;
+      total[2]=(total.length>>>8)&255; total[3]=total.length&255;
+    }
+    out=total; break; // ambil grup pertama (manifest store)
+  }
+  return out;
+}
+function extractJumbfPng(b){
+  let i=8;
+  while(i+8<b.length){
+    const len=((b[i]<<24)|(b[i+1]<<16)|(b[i+2]<<8)|b[i+3])>>>0;
+    const type=String.fromCharCode(b[i+4],b[i+5],b[i+6],b[i+7]);
+    if(type==='caBX') return b.slice(i+8,i+8+len);
+    if(type==='IEND') break;
+    i+=8+len+4;
+  }
+  return null;
+}
+
+/* ---------- DER/X.509 minimal: SPKI + subject/issuer/validity ---------- */
+function derWalk(u8,p){
+  const tag=u8[p]; let l=u8[p+1], q=p+2;
+  if(l&0x80){const n=l&0x7f;l=0;for(let i=0;i<n;i++)l=(l<<8)|u8[q++];}
+  return {tag,start:q,end:q+l,next:q+l};
+}
+function derChildren(u8,node){
+  const out=[]; let p=node.start;
+  while(p<node.end){const c=derWalk(u8,p);out.push(c);p=c.next;}
+  return out;
+}
+function parseName(u8,node){ // RDNSequence -> {CN,O}
+  const res={};
+  for(const rdn of derChildren(u8,node)){
+    for(const atv of derChildren(u8,rdn)){
+      const kids=derChildren(u8,atv);
+      if(kids.length<2)continue;
+      const oid=[...u8.slice(kids[0].start,kids[0].end)].join('.');
+      const val=new TextDecoder().decode(u8.slice(kids[1].start,kids[1].end));
+      if(oid==='85.4.3')res.CN=val;       // 2.5.4.3 encoded bytes: 55 04 03 -> "85.4.3"
+      if(oid==='85.4.10')res.O=val;       // 2.5.4.10
+    }
+  }
+  return res;
+}
+
+/* ---------- COSE_Sign1 ---------- */
+function parseCose(u8){
+  const {value}=cborDecode(u8);
+  if(!Array.isArray(value)||value.length<4) return null;
+  const [prot,unprot,payload,sig]=value;
+  let hdr={};
+  try{ hdr=cborDecode(prot).value||{}; }catch(e){}
+  const alg=hdr[1]??(unprot&&unprot[1]);
+  let x5=hdr[33]||(unprot&&unprot[33]);
+  if(x5&&!Array.isArray(x5)) x5=[x5];
+  return {protectedBytes:prot, alg, certs:x5||[], signature:sig, payload};
+}
+function coseAlgName(a){return({[-7]:'ES256',[-35]:'ES384',[-36]:'ES512',[-37]:'PS256',[-8]:'EdDSA'})[a]||('alg '+a);}
+
+async function coseVerify(cose, claimBytes){
+  const c=globalThis.crypto&&globalThis.crypto.subtle;
+  if(!c||!cose.certs.length) return {ok:null, why:'WebCrypto/sertifikat tidak tersedia'};
+  // Sig_structure = ["Signature1", protected, external_aad=h'', payload]
+  const enc=(items)=>{
+    // encoder CBOR mini utk struktur ini saja
+    const parts=[];
+    const pushLen=(mt,n)=>{
+      if(n<24)parts.push(Uint8Array.of((mt<<5)|n));
+      else if(n<256)parts.push(Uint8Array.of((mt<<5)|24,n));
+      else if(n<65536)parts.push(Uint8Array.of((mt<<5)|25,n>>8,n&255));
+      else parts.push(Uint8Array.of((mt<<5)|26,(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255));
+    };
+    pushLen(4,items.length);
+    for(const it of items){
+      if(typeof it==='string'){const b=new TextEncoder().encode(it);pushLen(3,b.length);parts.push(b);}
+      else {pushLen(2,it.length);parts.push(it);}
+    }
+    let n=0;for(const p of parts)n+=p.length;
+    const out=new Uint8Array(n);let o=0;
+    for(const p of parts){out.set(p,o);o+=p.length;}
+    return out;
+  };
+  const toBeSigned=enc(['Signature1', cose.protectedBytes, new Uint8Array(0), claimBytes]);
+  try{
+    const certDer=cose.certs[0];
+    // ambil SPKI: parse ulang cert dengan pencatatan offset header
+    const spki=extractSpki(certDer);
+    if(!spki) return {ok:null, why:'SPKI tidak ditemukan'};
+    let key,params,verParams;
+    if(cose.alg===-7){ params={name:'ECDSA',namedCurve:'P-256'}; verParams={name:'ECDSA',hash:'SHA-256'}; }
+    else if(cose.alg===-35){ params={name:'ECDSA',namedCurve:'P-384'}; verParams={name:'ECDSA',hash:'SHA-384'}; }
+    else if(cose.alg===-37){ params={name:'RSA-PSS',hash:'SHA-256'}; verParams={name:'RSA-PSS',saltLength:32}; }
+    else if(cose.alg===-8){ params={name:'Ed25519'}; verParams={name:'Ed25519'}; }
+    else return {ok:null, why:'algoritma '+coseAlgName(cose.alg)+' belum didukung verifikasi lokal'};
+    key=await c.importKey('spki',spki,params,false,['verify']);
+    const ok=await c.verify(verParams,key,cose.signature,toBeSigned);
+    return {ok, why: ok?'':'tanda tangan tidak cocok'};
+  }catch(e){ return {ok:null, why:'verifikasi gagal dijalankan: '+e.message}; }
+}
+function extractSpki(certDer){
+  try{
+    const u8=certDer;
+    const cert=derWalk(u8,0);
+    const tbs=derChildren(u8,cert)[0];
+    // catat offset header tiap anak tbs
+    const kids=[]; let p=tbs.start;
+    while(p<tbs.end){const c=derWalk(u8,p);c.hdrStart=p;kids.push(c);p=c.next;}
+    let idx=0; if(kids[0].tag===0xA0)idx=1;
+    const spkiNode=kids[idx+5];
+    return u8.slice(spkiNode.hdrStart,spkiNode.end);
+  }catch(e){return null;}
+}
+function certInfo(certDer){
+  try{
+    const u8=certDer;
+    const cert=derWalk(u8,0);
+    const tbs=derChildren(u8,cert)[0];
+    const kids=[]; let p=tbs.start;
+    while(p<tbs.end){const c=derWalk(u8,p);c.hdrStart=p;kids.push(c);p=c.next;}
+    let idx=0; if(kids[0].tag===0xA0)idx=1;
+    const iss=parseName(u8,kids[idx+2]);
+    const val=derChildren(u8,kids[idx+3]).map(t=>new TextDecoder().decode(u8.slice(t.start,t.end)));
+    const sub=parseName(u8,kids[idx+4]);
+    const t=s=>s&&s.length>=12?('20'+s.slice(0,2)+'-'+s.slice(2,4)+'-'+s.slice(4,6)):s;
+    return {issuer:iss, subject:sub, notBefore:t(val[0]), notAfter:t(val[1])};
+  }catch(e){return null;}
+}
+
+/* ---------- SHA-256 dengan exclusions (hard binding) ---------- */
+async function hashWithExclusions(fileBytes, exclusions){
+  const c=globalThis.crypto&&globalThis.crypto.subtle;
+  if(!c) return null;
+  const ex=(exclusions||[]).slice().sort((a,b)=>a.start-b.start);
+  const parts=[]; let pos=0;
+  for(const e of ex){
+    if(e.start>pos) parts.push(fileBytes.slice(pos,e.start));
+    pos=Math.max(pos,e.start+e.length);
+  }
+  if(pos<fileBytes.length) parts.push(fileBytes.slice(pos));
+  let n=0;for(const p of parts)n+=p.length;
+  const buf=new Uint8Array(n);let o=0;
+  for(const p of parts){buf.set(p,o);o+=p.length;}
+  return new Uint8Array(await c.digest('SHA-256',buf));
+}
+
+/* ---------- Interpretasi manifest store ---------- */
+async function analyzeC2PA(fileBytes){
+  const jumbf=extractJumbf(fileBytes);
+  if(!jumbf) return null;
+  const rootBoxes=parseBoxes(jumbf,0,jumbf.length);
+  let store=null;
+  for(const b of rootBoxes){
+    if(b.type==='jumb'){
+      const node=parseJumbSuper(jumbf,b.dataStart,b.dataEnd);
+      if(node.label==='c2pa'){store=node;break;}
+      if(!store) store=node;
+    }
+  }
+  if(!store) return null;
+
+  const res={present:true, manifests:[], activeLabel:null};
+  for(const man of store.children){
+    const m={label:man.label, generator:null, title:null, aiGenerated:false, aiSource:null,
+             actions:[], signer:null, sigAlg:null, sigVerified:null, sigWhy:'',
+             hashValid:null, ingredients:0, softwareAgents:[]};
+    let claimBytes=null, claimVal=null, coseBytes=null, hashAssertion=null;
+
+    const findContent=(node)=>node.contents[0]||null;
+
+    for(const child of man.children){
+      const lab=child.label||'';
+      if(lab==='c2pa.claim'||lab==='c2pa.claim.v2'){
+        const ct=findContent(child);
+        if(ct){claimBytes=jumbf.slice(ct.start,ct.end);
+          try{claimVal=cborDecode(claimBytes).value;}catch(e){}}
+      }
+      else if(lab==='c2pa.signature'){
+        const ct=findContent(child);
+        if(ct) coseBytes=jumbf.slice(ct.start,ct.end);
+      }
+      else if(lab==='c2pa.assertions'){
+        for(const as of child.children){
+          const alab=as.label||'';
+          const ct=findContent(as);
+          if(!ct) continue;
+          const raw=jumbf.slice(ct.start,ct.end);
+          let data=null;
+          try{
+            if(ct.type==='json') data=JSON.parse(new TextDecoder().decode(raw));
+            else if(ct.type==='cbor') data=cborDecode(raw).value;
+          }catch(e){}
+          if(/^c2pa\.actions/.test(alab)&&data&&data.actions){
+            for(const act of data.actions){
+              const dst=act.digitalSourceType||'';
+              const agent=(act.softwareAgent&&(act.softwareAgent.name||act.softwareAgent))||'';
+              m.actions.push({action:act.action,dst,agent});
+              if(agent) m.softwareAgents.push(String(agent));
+              if(/trainedAlgorithmicMedia|compositeWithTrainedAlgorithmicMedia|algorithmicMedia/i.test(dst)){
+                m.aiGenerated=true; m.aiSource=dst.split('/').pop();
+              }
+            }
+          }
+          if(/^c2pa\.hash\.data/.test(alab)&&data) hashAssertion=data;
+          if(/^c2pa\.ingredient/.test(alab)) m.ingredients++;
+        }
+      }
+    }
+
+    if(claimVal){
+      m.title=claimVal['dc:title']||null;
+      const cgi=claimVal.claim_generator_info;
+      if(Array.isArray(cgi)&&cgi[0]) m.generator=(cgi[0].name||'')+(cgi[0].version?' '+cgi[0].version:'');
+      else if(cgi&&typeof cgi==='object') m.generator=(cgi.name||'')+(cgi.version?' '+cgi.version:'');
+      else if(claimVal.claim_generator) m.generator=String(claimVal.claim_generator);
+    }
+
+    if(coseBytes){
+      const cose=parseCose(coseBytes);
+      if(cose){
+        m.sigAlg=coseAlgName(cose.alg);
+        if(cose.certs.length){
+          const info=certInfo(cose.certs[0]);
+          if(info) m.signer={name:info.subject.O||info.subject.CN||'?', cn:info.subject.CN||'',
+                             issuer:info.issuer.O||info.issuer.CN||'?', notBefore:info.notBefore, notAfter:info.notAfter};
+        }
+        if(claimBytes){
+          const v=await coseVerify(cose,claimBytes);
+          m.sigVerified=v.ok; m.sigWhy=v.why||'';
+        }
+      }
+    }
+
+    if(hashAssertion&&hashAssertion.hash){
+      const exc=(hashAssertion.exclusions||[]).map(e=>({start:e.start,length:e.length}));
+      const calc=await hashWithExclusions(fileBytes,exc);
+      if(calc){
+        const ref=hashAssertion.hash;
+        m.hashValid = calc.length===ref.length && calc.every((v,i)=>v===ref[i]);
+      }
+    }
+
+    res.manifests.push(m);
+  }
+  return res;
+}
+
+
+/* ================= STATE ================= */
+const S = {
+  img:null, file:null, bytes:null,
+  mode:'original',
+  caches:{},          // mode -> canvas
+  elaQ:75, elaAmp:18,
+};
+
+const $ = id => document.getElementById(id);
+const viewCanvas = $('viewCanvas'), vctx = viewCanvas.getContext('2d');
+
+/* ================= UPLOAD ================= */
+const dz = $('dropzone'), fi = $('fileInput');
+dz.addEventListener('click', ()=> fi.click());
+dz.addEventListener('dragover', e=>{e.preventDefault(); dz.classList.add('dragover');});
+dz.addEventListener('dragleave', ()=> dz.classList.remove('dragover'));
+dz.addEventListener('drop', e=>{
+  e.preventDefault(); dz.classList.remove('dragover');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fi.addEventListener('change', ()=>{ if(fi.files[0]) handleFile(fi.files[0]); });
+$('btnReset').addEventListener('click', ()=>{
+  $('result').style.display='none'; dz.style.display='block';
+  S.caches={}; fi.value='';
+  resetCompare();
+  window.scrollTo({top:0});
+});
+function resetCompare(){
+  S.img2=null; S.file2=null; S.compareCanvas=null; S.compareResult=null;
+  $('tabCompare').style.display='none';
+  $('cmpInput').value='';
+  $('btnCompare').textContent='＋ Bandingkan dengan gambar lain';
+  const span=document.querySelector('#comparebar span');
+  if(span) span.textContent='Punya versi lain dari bukti yang sama? Bandingkan piksel-per-piksel untuk melokalisasi manipulasi, metode paling akurat.';
+}
+
+async function handleFile(file){
+  if(!file.type.startsWith('image/')){ alert('File harus berupa gambar.'); return; }
+  S.file = file;
+  S.bytes = new Uint8Array(await file.arrayBuffer());
+
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  await new Promise((res,rej)=>{ img.onload=res; img.onerror=()=>rej(new Error('Gagal memuat gambar')); img.src=url; })
+    .catch(()=>{ alert('Format gambar tidak dapat dibaca browser.'); });
+  if(!img.width) return;
+  S.img = img;
+  S.caches = {};
+  resetCompare();
+
+  dz.style.display='none';
+  $('result').style.display='block';
+
+  $('fileInfo').innerHTML =
+    `<span>Nama: <b>${esc(file.name)}</b></span>`+
+    `<span>Tipe: <b>${esc(file.type||'?')}</b></span>`+
+    `<span>Ukuran: <b>${fmtBytes(file.size)}</b></span>`+
+    `<span>Dimensi: <b>${img.naturalWidth} × ${img.naturalHeight} px</b></span>`;
+
+  const analysis = analyzeBytes(S.bytes, file);
+  S.analysisData = analysis;
+  let c2paRes=null;
+  try{ c2paRes = await analyzeC2PA(S.bytes); }catch(e){ c2paRes=null; }
+  S.c2pa = c2paRes;
+  renderC2PAPanel(c2paRes, analysis);
+  renderMetadata(analysis);
+  renderFindings(analysis, file, img, c2paRes);
+  renderSummary();
+
+  setMode('original');
+}
+
+/* ================= RENDER MODES ================= */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=> setMode(t.dataset.mode));
+});
+
+const MODE_HELP = {
+  original:'<b>Mode Asli.</b> Gunakan kaca pembesar untuk memeriksa font, kerning, dan tepi piksel pada angka nominal. Bandingkan dengan teks lain di layar yang seharusnya memakai font sama.',
+  ela:'<b>Mode ELA.</b> Area yang menyala jauh lebih terang dibanding elemen sejenis di sekitarnya bisa menandakan hasil editan/tempelan baru. Naikkan <b>Amplifikasi</b> bila gambar tampak gelap; coba beberapa nilai <b>Kualitas JPEG</b>.',
+  noise:'<b>Mode Noise.</b> Menampilkan komponen frekuensi tinggi. Cari "tambalan" yang polanya berbeda (terlalu halus/kasar) di sekitar nominal, jejak brush, clone stamp, atau inpainting AI.',
+  chR:'<b>Kanal Merah.</b> Melihat satu kanal warna terpisah bisa memunculkan bayangan penghapusan yang tak terlihat pada gambar penuh.',
+  chG:'<b>Kanal Hijau.</b> Melihat satu kanal warna terpisah bisa memunculkan bayangan penghapusan yang tak terlihat pada gambar penuh.',
+  chB:'<b>Kanal Biru.</b> Melihat satu kanal warna terpisah bisa memunculkan bayangan penghapusan yang tak terlihat pada gambar penuh.',
+  compare:'<b>Mode Banding.</b> Tiga panel berdampingan: <b style="color:#6aa9ff">Gambar 1</b>, <b style="color:#6aa9ff">Gambar 2</b>, dan <b style="color:var(--tag)">Analisis</b>. Area <span style="color:var(--danger)">merah</span> = piksel yang berubah; <span style="color:var(--tag)">kotak kuning</span> (digambar di ketiga panel pada posisi sama) = wilayah perubahan konten, mis. nominal yang diganti. Arahkan kaca pembesar ke kotak kuning di Gambar 1 lalu Gambar 2 untuk melihat perbedaannya. Skor per wilayah ada di panel Temuan.',
+};
+
+async function setMode(mode){
+  S.mode = mode;
+  document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('active', t.dataset.mode===mode));
+  $('modehelp').innerHTML = MODE_HELP[mode];
+  const isEla = mode==='ela';
+  $('elaQualWrap').style.display = isEla?'flex':'none';
+  $('elaAmpWrap').style.display  = isEla?'flex':'none';
+
+  const c = await getModeCanvas(mode);
+  viewCanvas.width = c.width; viewCanvas.height = c.height;
+  vctx.drawImage(c,0,0);
+}
+
+async function getModeCanvas(mode){
+  const key = mode==='ela' ? `ela_${S.elaQ}_${S.elaAmp}` : mode;
+  if(S.caches[key]) return S.caches[key];
+  let c;
+  if(mode==='original') c = drawOriginal();
+  else if(mode==='ela') c = await computeELA(S.elaQ, S.elaAmp);
+  else if(mode==='noise') c = computeNoise();
+  else if(mode==='compare') c = S.compareCanvas || drawOriginal();
+  else c = computeChannel(mode.slice(2)); // R/G/B
+  S.caches[key] = c;
+  return c;
+}
+
+const MAX_DIM = 2200; // batasi supaya HP tidak kehabisan memori
+function baseCanvas(){
+  const img = S.img;
+  const scale = Math.min(1, MAX_DIM/Math.max(img.naturalWidth,img.naturalHeight));
+  const w = Math.round(img.naturalWidth*scale), h = Math.round(img.naturalHeight*scale);
+  const c = document.createElement('canvas'); c.width=w; c.height=h;
+  c.getContext('2d').drawImage(img,0,0,w,h);
+  return c;
+}
+function drawOriginal(){ return baseCanvas(); }
+
+/* ---------- ELA ---------- */
+function computeELA(quality, amp){
+  return new Promise(resolve=>{
+    const base = S.caches['original'] || (S.caches['original']=baseCanvas());
+    const dataURL = base.toDataURL('image/jpeg', quality/100);
+    const re = new Image();
+    re.onload = ()=>{
+      const w=base.width, h=base.height;
+      const cB=document.createElement('canvas'); cB.width=w; cB.height=h;
+      cB.getContext('2d').drawImage(re,0,0);
+      const A = base.getContext('2d').getImageData(0,0,w,h);
+      const B = cB.getContext('2d').getImageData(0,0,w,h);
+      const out = new ImageData(w,h);
+      const a=A.data,b=B.data,o=out.data;
+      for(let i=0;i<a.length;i+=4){
+        o[i]   = Math.min(255, Math.abs(a[i]-b[i])*amp);
+        o[i+1] = Math.min(255, Math.abs(a[i+1]-b[i+1])*amp);
+        o[i+2] = Math.min(255, Math.abs(a[i+2]-b[i+2])*amp);
+        o[i+3] = 255;
+      }
+      const cO=document.createElement('canvas'); cO.width=w; cO.height=h;
+      cO.getContext('2d').putImageData(out,0,0);
+      resolve(cO);
+    };
+    re.src = dataURL;
+  });
+}
+$('elaQuality').addEventListener('input', e=>{
+  S.elaQ=+e.target.value; $('elaQualityVal').textContent=S.elaQ;
+  if(S.mode==='ela') debounceEla();
+});
+$('elaAmp').addEventListener('input', e=>{
+  S.elaAmp=+e.target.value; $('elaAmpVal').textContent=S.elaAmp;
+  if(S.mode==='ela') debounceEla();
+});
+let elaTimer=null;
+function debounceEla(){ clearTimeout(elaTimer); elaTimer=setTimeout(()=>setMode('ela'),200); }
+
+/* ---------- NOISE (high-pass) ---------- */
+function computeNoise(){
+  const base = S.caches['original'] || (S.caches['original']=baseCanvas());
+  const w=base.width,h=base.height;
+  const src = base.getContext('2d').getImageData(0,0,w,h).data;
+  // grayscale
+  const g = new Float32Array(w*h);
+  for(let i=0,p=0;i<src.length;i+=4,p++) g[p]=src[i]*0.299+src[i+1]*0.587+src[i+2]*0.114;
+  // box blur 3x3
+  const bl = new Float32Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let s=0,n=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      const yy=y+dy,xx=x+dx;
+      if(yy>=0&&yy<h&&xx>=0&&xx<w){s+=g[yy*w+xx];n++;}
+    }
+    bl[y*w+x]=s/n;
+  }
+  const out=new ImageData(w,h),o=out.data;
+  for(let p=0,i=0;p<w*h;p++,i+=4){
+    const v=Math.min(255,Math.abs(g[p]-bl[p])*8);
+    o[i]=o[i+1]=o[i+2]=v; o[i+3]=255;
+  }
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  c.getContext('2d').putImageData(out,0,0);
+  return c;
+}
+
+/* ---------- CHANNELS ---------- */
+function computeChannel(ch){
+  const idx={R:0,G:1,B:2}[ch];
+  const base = S.caches['original'] || (S.caches['original']=baseCanvas());
+  const w=base.width,h=base.height;
+  const src=base.getContext('2d').getImageData(0,0,w,h);
+  const out=new ImageData(w,h);
+  for(let i=0;i<src.data.length;i+=4){
+    const v=src.data[i+idx];
+    out.data[i]=out.data[i+1]=out.data[i+2]=v; out.data[i+3]=255;
+  }
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  c.getContext('2d').putImageData(out,0,0);
+  return c;
+}
+
+/* ================= MODE BANDING (2 GAMBAR) ================= */
+$('btnCompare').addEventListener('click', ()=> $('cmpInput').click());
+$('cmpInput').addEventListener('change', async e=>{
+  if(!e.target.files[0]) return;
+  const file = e.target.files[0];
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=url;}).catch(()=>alert('Gagal memuat gambar pembanding.'));
+  if(!img.width) return;
+  S.img2 = img; S.file2 = file;
+  $('btnCompare').textContent = '⏳ Menganalisis…';
+  await new Promise(r=>setTimeout(r,30)); // biar UI sempat update
+  runCompare();
+  $('btnCompare').textContent = '↺ Ganti gambar pembanding';
+  $('tabCompare').style.display='inline-block';
+  setMode('compare');
+});
+
+function imgToData(img, w, h, cropX=0, cropY=0){
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  c.getContext('2d').drawImage(img, -cropX, -cropY);
+  return c.getContext('2d').getImageData(0,0,w,h);
+}
+
+function runCompare(){
+  const im1=S.img, im2=S.img2;
+  const w1=im1.naturalWidth,h1=im1.naturalHeight,w2=im2.naturalWidth,h2=im2.naturalHeight;
+  const cmp={dimMismatch:(w1!==w2||h1!==h2), dims:[`${w1}×${h1}`,`${w2}×${h2}`],
+             boxes:[], rerender:false, changedPct:0, resized:false, offset:[0,0]};
+
+  const dw=Math.abs(w1-w2), dh=Math.abs(h1-h2);
+  const sc=Math.min(1, 2400/Math.max(w1,h1,w2,h2)); // batasi beban memori HP
+  const w=Math.floor(Math.min(w1,w2)*sc), h=Math.floor(Math.min(h1,h2)*sc);
+  let A,B;
+
+  if(dw<=8 && dh<=8 && sc===1){
+    // ---- alignment via crop: coba semua offset, pilih diff terkecil (sampling agar cepat) ----
+    A = imgToData(im1,w,h);
+    const full=document.createElement('canvas'); full.width=w2; full.height=h2;
+    const fctx=full.getContext('2d'); fctx.drawImage(im2,0,0);
+    let best=null;
+    for(let oy=0;oy<=h2-h;oy++) for(let ox=0;ox<=w2-w;ox++){
+      const T=fctx.getImageData(ox,oy,w,h);
+      let s=0,n=0;
+      for(let i=0;i<A.data.length;i+=4*97){ // sampling ~1%
+        s+=Math.abs(A.data[i]-T.data[i])+Math.abs(A.data[i+1]-T.data[i+1])+Math.abs(A.data[i+2]-T.data[i+2]); n++;
+      }
+      const m=s/n;
+      if(!best||m<best.m) best={m,ox,oy,T};
+    }
+    B=best.T; cmp.offset=[best.ox,best.oy];
+  } else {
+    // ukuran berbeda / gambar sangat besar: samakan via resize dengan skala sama
+    const c1=document.createElement('canvas'); c1.width=w; c1.height=h;
+    c1.getContext('2d').drawImage(im1,0,0,w,h);
+    const c2=document.createElement('canvas'); c2.width=w; c2.height=h;
+    c2.getContext('2d').drawImage(im2,0,0,w,h);
+    A = c1.getContext('2d').getImageData(0,0,w,h);
+    B = c2.getContext('2d').getImageData(0,0,w,h);
+    cmp.resized = (dw>8 || dh>8);
+  }
+
+  // ---- diff piksel ----
+  const D=new Float32Array(w*h);
+  const da=A.data, db=B.data;
+  for(let p=0,i=0;p<w*h;p++,i+=4){
+    D[p]=Math.abs(da[i]-db[i])+Math.abs(da[i+1]-db[i+1])+Math.abs(da[i+2]-db[i+2]);
+  }
+
+  // ---- heat blok 16px + skor robust (median & MAD) ----
+  const bs=16, hb=Math.floor(h/bs), wb=Math.floor(w/bs);
+  const heat=new Float32Array(hb*wb);
+  for(let by=0;by<hb;by++)for(let bx=0;bx<wb;bx++){
+    let s=0;
+    for(let y=by*bs;y<by*bs+bs;y++)for(let x=bx*bs;x<bx*bs+bs;x++) s+=D[y*w+x];
+    heat[by*wb+bx]=s/(bs*bs);
+  }
+  const sorted=Float32Array.from(heat).sort();
+  const med=sorted[sorted.length>>1];
+  const devs=Float32Array.from(heat,v=>Math.abs(v-med)).sort();
+  const mad=Math.max(devs[devs.length>>1],1e-3);
+  const score=Float32Array.from(heat,v=>(v-med)/mad);
+
+  const EXTREME=120, JITTER_LO=10;
+  let extreme=0,jitter=0;
+  const hot=new Uint8Array(hb*wb);
+  for(let i=0;i<score.length;i++){
+    if(score[i]>EXTREME){hot[i]=1;extreme++;}
+    else if(score[i]>JITTER_LO) jitter++;
+  }
+  cmp.changedPct=(extreme/score.length*100);
+  // re-render menyeluruh: banyak blok "bergetar" ringan padahal bukan perubahan konten
+  cmp.rerender = (jitter/score.length > 0.05);
+  cmp.jitterPct=(jitter/score.length*100);
+
+  // ---- komponen terhubung -> kotak ----
+  const lbl=new Int32Array(hb*wb); let cur=0;
+  const qy=[],qx=[];
+  for(let y=0;y<hb;y++)for(let x=0;x<wb;x++){
+    if(hot[y*wb+x]&&!lbl[y*wb+x]){
+      cur++; qy.length=0;qx.length=0; qy.push(y);qx.push(x); lbl[y*wb+x]=cur;
+      let minx=x,maxx=x,miny=y,maxy=y,cnt=0;
+      while(qy.length){
+        const cy=qy.pop(),cx=qx.pop(); cnt++;
+        if(cx<minx)minx=cx; if(cx>maxx)maxx=cx; if(cy<miny)miny=cy; if(cy>maxy)maxy=cy;
+        for(let ddy=-1;ddy<=1;ddy++)for(let ddx=-1;ddx<=1;ddx++){
+          const ny=cy+ddy,nx=cx+ddx;
+          if(ny>=0&&ny<hb&&nx>=0&&nx<wb&&hot[ny*wb+nx]&&!lbl[ny*wb+nx]){lbl[ny*wb+nx]=cur;qy.push(ny);qx.push(nx);}
+        }
+      }
+      if(cnt>=2) cmp.boxes.push({x0:minx*bs-8,y0:miny*bs-8,x1:(maxx+1)*bs+8,y1:(maxy+1)*bs+8,n:cnt});
+    }
+  }
+  cmp.boxes.sort((a,b)=>b.n-a.n);
+  cmp.boxes=cmp.boxes.slice(0,8);
+
+  // ---- canvas overlay analisis ----
+  const out=document.createElement('canvas'); out.width=w; out.height=h;
+  const octx=out.getContext('2d');
+  const od=new ImageData(new Uint8ClampedArray(db),w,h);
+  for(let by=0;by<hb;by++)for(let bx=0;bx<wb;bx++){
+    if(!hot[by*wb+bx]) continue;
+    for(let y=by*bs;y<by*bs+bs;y++)for(let x=bx*bs;x<bx*bs+bs;x++){
+      const p=y*w+x;
+      if(D[p]>50){
+        const i=p*4;
+        od.data[i]=Math.min(255,od.data[i]+170);
+        od.data[i+1]=od.data[i+1]*0.4;
+        od.data[i+2]=od.data[i+2]*0.4;
+      }
+    }
+  }
+  octx.putImageData(od,0,0);
+
+  // ---- kanvas gambar 1 & 2 (hasil alignment) ----
+  const c1=document.createElement('canvas'); c1.width=w; c1.height=h;
+  c1.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(da),w,h),0,0);
+  const c2=document.createElement('canvas'); c2.width=w; c2.height=h;
+  c2.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(db),w,h),0,0);
+
+  // ---- gabungkan: [GAMBAR 1 | GAMBAR 2 | ANALISIS] dengan label nama file ----
+  const gap=Math.max(10,Math.round(w*0.02)), hdrH=Math.max(44,Math.round(w*0.085));
+  const comp=document.createElement('canvas');
+  comp.width=w*3+gap*2; comp.height=h+hdrH;
+  const cc=comp.getContext('2d');
+  cc.fillStyle='#0d1319'; cc.fillRect(0,0,comp.width,comp.height);
+  cc.drawImage(c1,0,hdrH); cc.drawImage(c2,w+gap,hdrH); cc.drawImage(out,(w+gap)*2,hdrH);
+
+  // kotak kuning digambar di KETIGA panel agar mudah dibandingkan
+  cc.lineWidth=Math.max(3,Math.round(w*0.006)); cc.strokeStyle='#f2b32c';
+  for(const bx of cmp.boxes){
+    for(const offX of [0, w+gap, (w+gap)*2]){
+      cc.strokeRect(offX+bx.x0, hdrH+bx.y0, bx.x1-bx.x0, bx.y1-bx.y0);
+    }
+  }
+
+  // label header: nomor + nama file
+  const name1=(S.file&&S.file.name)||'gambar-1', name2=(S.file2&&S.file2.name)||'gambar-2';
+  const fs1=Math.max(15,Math.round(w*0.036)), fs2=Math.max(11,Math.round(w*0.026));
+  const fit=(t,max)=>{cc.font=`${fs2}px 'IBM Plex Mono',monospace`;
+    while(cc.measureText(t).width>max&&t.length>6)t=t.slice(0,t.length-4)+'…';return t;};
+  const labels=[
+    {t:'GAMBAR 1', n:name1, col:'#6aa9ff', x:0},
+    {t:'GAMBAR 2', n:name2, col:'#6aa9ff', x:w+gap},
+    {t:'ANALISIS PERBEDAAN', n:'merah = piksel berubah · kotak = konten diganti', col:'#f2b32c', x:(w+gap)*2},
+  ];
+  for(const L of labels){
+    cc.font=`700 ${fs1}px 'Space Grotesk',sans-serif`; cc.fillStyle=L.col;
+    cc.fillText(L.t, L.x+6, Math.round(hdrH*0.42));
+    cc.font=`${fs2}px 'IBM Plex Mono',monospace`; cc.fillStyle='#8b9aa9';
+    cc.fillText(fit(L.n,w-12), L.x+6, Math.round(hdrH*0.82));
+  }
+
+  S.compareCanvas=comp; delete S.caches['compare'];
+  S.compareResult=cmp;
+  updateCompareBar();
+  renderCompareFindings(cmp,w,h);
+  renderSummary();
+}
+
+function updateCompareBar(){
+  const name1=(S.file&&S.file.name)||'-', name2=(S.file2&&S.file2.name)||'-';
+  const span=document.querySelector('#comparebar span');
+  span.innerHTML=`<b style="color:#6aa9ff">GAMBAR 1:</b> <span style="font-family:var(--mono);font-size:12px">${esc(name1)}</span>
+    &nbsp;·&nbsp; <b style="color:#6aa9ff">GAMBAR 2:</b> <span style="font-family:var(--mono);font-size:12px">${esc(name2)}</span>`;
+}
+
+function renderCompareFindings(cmp,w,h){
+  const F=[];
+  const add=(sev,t,d)=>F.push({sev,t,d});
+  const name1=(S.file&&S.file.name)||'gambar 1', name2=(S.file2&&S.file2.name)||'gambar 2';
+
+  add('info','File yang dibandingkan',
+    `<b>Gambar 1:</b> <code>${esc(name1)}</code> (${cmp.dims[0]})<br><b>Gambar 2:</b> <code>${esc(name2)}</code> (${cmp.dims[1]})`);
+
+  if(cmp.dimMismatch){
+    add('danger','Dimensi kedua gambar berbeda',
+      `Versi 1: <code>${cmp.dims[0]}</code>, versi 2: <code>${cmp.dims[1]}</code>. Dua screenshot dari perangkat yang sama seharusnya berdimensi identik. Perbedaan (walau 1 piksel) mengindikasikan salah satu gambar telah di-render ulang, ciri khas pipeline editing AI generatif.`);
+  }
+  if(cmp.resized){
+    add('warn','Ukuran berbeda jauh, perbandingan memakai penyesuaian skala',
+      'Hasil lokalisasi tetap berguna, tapi presisinya menurun. Idealnya bandingkan dua file beresolusi sama.');
+  }
+  if(cmp.boxes.length){
+    const main=cmp.boxes[0];
+    add('danger','KONTEN BERBEDA, wilayah manipulasi terlokalisasi',
+      `Terdeteksi <b>${cmp.boxes.length} wilayah</b> dengan perubahan konten ekstrem. Wilayah utama di sekitar koordinat <code>x ${Math.max(0,main.x0)}–${main.x1}, y ${Math.max(0,main.y0)}–${main.y1}</code> (ditandai kotak kuning di tab <b>Banding</b>). Jika kotak ini jatuh pada angka nominal, salah satu versi hampir pasti telah diubah nominalnya. Periksa detail dengan kaca pembesar.`);
+  } else {
+    add('ok','Tidak ada perubahan konten signifikan',
+      'Kedua gambar identik secara konten (perbedaan hanya noise kompresi). Kemungkinan keduanya berasal dari file yang sama.');
+  }
+  if(cmp.rerender && cmp.boxes.length){
+    add('danger','Indikasi kuat editing AI generatif (re-render menyeluruh)',
+      `Sekitar <code>${cmp.jitterPct.toFixed(1)}%</code> blok gambar, termasuk teks yang tidak diubah isinya, "bergetar" halus antar dua versi, sedangkan area background polos identik. Ini pola khas AI generatif (inpainting/edit berbasis model) yang me-render ulang seluruh piksel, bukan sekadar tempel-teks manual. Ini juga menjelaskan mengapa ELA satu-gambar sering gagal mendeteksinya.`);
+  }
+  add('info','Catatan interpretasi',
+    'Perbandingan menunjukkan <b>apa yang berbeda</b>, bukan versi mana yang asli. Tentukan keaslian dari sumber yang bisa diverifikasi: file yang diambil langsung dari perangkat/aplikasi bank, mutasi rekening, atau nomor referensi yang dicek ke sistem. Nomor referensi yang sama pada dua nominal berbeda = kepastian salah satunya palsu.');
+
+  const html=F.map(f=>
+    `<div class="finding"><div class="sev ${f.sev}"></div><div><div class="t">${f.t}</div><div class="d">${f.d}</div></div></div>`
+  ).join('');
+  $('findings').innerHTML =
+    `<div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--tag);margin-bottom:10px">HASIL MODE BANDING</div>`+
+    html+
+    `<div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--dim);margin:14px 0 10px">ANALISIS GAMBAR PERTAMA</div>`+
+    (S.baseFindingsHTML||'');
+}
+
+/* ================= LOUPE ================= */
+const loupe=$('loupe'), lc=$('loupeCanvas'), lctx=lc.getContext('2d');
+const viewerbox=$('viewerbox');
+let loupeOn=true, loupeZoom=4;
+$('loupeToggle').addEventListener('change',e=>{loupeOn=e.target.checked; if(!loupeOn)loupe.style.display='none';});
+$('loupeZoom').addEventListener('input',e=>{loupeZoom=+e.target.value;$('loupeZoomVal').textContent=loupeZoom+'×';});
+
+function moveLoupe(clientX,clientY){
+  if(!loupeOn) return;
+  const r=viewCanvas.getBoundingClientRect();
+  if(clientX<r.left||clientX>r.right||clientY<r.top||clientY>r.bottom){loupe.style.display='none';return;}
+  const cx=(clientX-r.left)*(viewCanvas.width/r.width);
+  const cy=(clientY-r.top)*(viewCanvas.height/r.height);
+  const srcSize=lc.width/loupeZoom;
+  lctx.imageSmoothingEnabled = loupeZoom<3;
+  lctx.fillStyle='#000';lctx.fillRect(0,0,lc.width,lc.height);
+  lctx.drawImage(viewCanvas, cx-srcSize/2, cy-srcSize/2, srcSize, srcSize, 0,0,lc.width,lc.height);
+  // crosshair
+  lctx.strokeStyle='rgba(242,179,44,.8)';lctx.lineWidth=1;
+  lctx.beginPath();lctx.moveTo(lc.width/2,0);lctx.lineTo(lc.width/2,lc.height);
+  lctx.moveTo(0,lc.height/2);lctx.lineTo(lc.width,lc.height/2);lctx.stroke();
+  const br=viewerbox.getBoundingClientRect();
+  loupe.style.display='block';
+  loupe.style.left=Math.min(br.width-175, Math.max(5,(clientX-br.left)+18))+'px';
+  loupe.style.top =Math.min(br.height-175,Math.max(5,(clientY-br.top)-190))+'px';
+}
+viewCanvas.addEventListener('mousemove',e=>moveLoupe(e.clientX,e.clientY));
+viewCanvas.addEventListener('mouseleave',()=>loupe.style.display='none');
+viewCanvas.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches[0];moveLoupe(t.clientX,t.clientY);},{passive:false});
+viewCanvas.addEventListener('touchend',()=>loupe.style.display='none');
+
+/* ================= ANALISIS BYTES / METADATA ================= */
+function analyzeBytes(bytes, file){
+  const res={exif:{},pngText:[],markers:[],segments:[],isJPEG:false,isPNG:false,hasExif:false,
+             hasXMP:false,hasC2PA:false,hasPhotoshopIRB:false,software:null,xmpSnippet:null};
+  // string latin1 untuk pencarian penanda
+  let ascii='';
+  const CHUNK=65536;
+  for(let i=0;i<bytes.length;i+=CHUNK){
+    ascii+=String.fromCharCode.apply(null, bytes.subarray(i,Math.min(i+CHUNK,bytes.length)));
+  }
+  res._ascii=ascii;
+
+  if(bytes[0]===0xFF && bytes[1]===0xD8){ res.isJPEG=true; parseJPEG(bytes,res); }
+  else if(bytes[0]===0x89 && bytes[1]===0x50){ res.isPNG=true; parsePNG(bytes,res); }
+
+  // ---- pencarian penanda universal ----
+  const MARKS=[
+    {re:/adobe photoshop[^\x00\x22\x3C]{0,40}/i, id:'photoshop', label:'Adobe Photoshop'},
+    {re:/\bGIMP\b[ 0-9.]{0,12}/, id:'gimp', label:'GIMP'},
+    {re:/canva/i, id:'canva', label:'Canva'},
+    {re:/picsart/i, id:'picsart', label:'PicsArt'},
+    {re:/snapseed/i, id:'snapseed', label:'Snapseed'},
+    {re:/photopea/i, id:'photopea', label:'Photopea'},
+    {re:/paint\.net/i, id:'paintnet', label:'Paint.NET'},
+    {re:/stable[- ]?diffusion/i, id:'sd', label:'Stable Diffusion'},
+    {re:/midjourney/i, id:'mj', label:'Midjourney'},
+    {re:/DALL[·\-]?E/i, id:'dalle', label:'DALL·E'},
+    {re:/invokeai|comfyui|automatic1111|sd-webui|NovelAI/i, id:'sdui', label:'UI generator AI (ComfyUI/A1111/dsb.)'},
+    {re:/firefly/i, id:'firefly', label:'Adobe Firefly'},
+    {re:/\bc2pa\b|jumbf|contentauth|Content Credentials/i, id:'c2pa', label:'C2PA / Content Credentials'},
+    {re:/xmp\.did|xmp\.iid|xmpmeta/i, id:'xmp', label:'XMP metadata'},
+    {re:/photoshop:/i, id:'psxmp', label:'Namespace XMP Photoshop'},
+    {re:/screenshot/i, id:'screenshot', label:'Kata "screenshot"'},
+  ];
+  for(const m of MARKS){
+    const hit=ascii.match(m.re);
+    if(hit) res.markers.push({id:m.id,label:m.label,sample:hit[0].slice(0,60)});
+  }
+  if(res.markers.some(m=>m.id==='c2pa')) res.hasC2PA=true;
+  if(res.markers.some(m=>m.id==='xmp'||m.id==='psxmp')) res.hasXMP=true;
+  return res;
+}
+
+/* ---- JPEG segments + EXIF ---- */
+function parseJPEG(b,res){
+  let i=2;
+  while(i+4<b.length){
+    if(b[i]!==0xFF) break;
+    const marker=b[i+1];
+    if(marker===0xD9||marker===0xDA) break;            // EOI / SOS
+    const len=(b[i+2]<<8)|b[i+3];
+    const segStart=i+4, segEnd=i+2+len;
+    const name='APP'+(marker-0xE0);
+    if(marker>=0xE0&&marker<=0xEF) res.segments.push(name);
+    if(marker===0xE1){
+      const head=str(b,segStart,Math.min(segStart+30,segEnd));
+      if(head.startsWith('Exif\x00\x00')){ res.hasExif=true; parseEXIF(b,segStart+6,res); }
+      else if(head.includes('http://ns.adobe.com/xap')){
+        res.hasXMP=true;
+        res.xmpSnippet=str(b,segStart,Math.min(segEnd,segStart+4000));
+      }
+    }
+    if(marker===0xED) res.hasPhotoshopIRB=true;         // APP13 Photoshop IRB
+    if(marker===0xEB) res.hasC2PA=true;                 // APP11 JUMBF (umumnya C2PA)
+    i=segEnd;
+  }
+}
+
+function parseEXIF(b,tiffOff,res){
+  try{
+    const le = (b[tiffOff]===0x49);                    // 'II' little-endian
+    const u16=o=> le ? b[o]|b[o+1]<<8 : b[o]<<8|b[o+1];
+    const u32=o=> le ? (b[o]|b[o+1]<<8|b[o+2]<<16|b[o+3]<<24)>>>0 : (b[o]<<24|b[o+1]<<16|b[o+2]<<8|b[o+3])>>>0;
+    const TAGS={0x010F:'Make (Merek)',0x0110:'Model (Perangkat)',0x0131:'Software',0x0132:'DateTime (Modifikasi)',
+                0x9003:'DateTimeOriginal (Pemotretan)',0x9004:'DateTimeDigitized',0xA430:'CameraOwnerName',
+                0x8298:'Copyright',0x013B:'Artist',0x011A:'XResolution',0x0112:'Orientation'};
+    const readIFD=(off)=>{
+      const n=u16(off); let exifPtr=0,gpsPtr=0;
+      for(let k=0;k<n;k++){
+        const e=off+2+k*12;
+        const tag=u16(e), type=u16(e+2), cnt=u32(e+4);
+        if(tag===0x8769){exifPtr=u32(e+8);continue;}
+        if(tag===0x8825){gpsPtr=u32(e+8);continue;}
+        if(!TAGS[tag]) continue;
+        let val='';
+        if(type===2){ // ASCII
+          const size=cnt;
+          const vo = size<=4 ? e+8 : tiffOff+u32(e+8);
+          val=str(b,vo,vo+size).replace(/\x00+$/,'');
+        } else if(type===3){ val=String(u16(cnt<=2? e+8 : tiffOff+u32(e+8))); }
+        else if(type===4){ val=String(u32(cnt<=1? e+8 : tiffOff+u32(e+8))); }
+        else continue;
+        res.exif[TAGS[tag]]=val;
+        if(tag===0x0131) res.software=val;
+      }
+      return {exifPtr,gpsPtr};
+    };
+    const ifd0=u32(tiffOff+4);
+    const {exifPtr,gpsPtr}=readIFD(tiffOff+ifd0);
+    if(exifPtr) readIFD(tiffOff+exifPtr);
+    if(gpsPtr) res.exif['GPS']='Ada data GPS (koordinat tersimpan)';
+  }catch(e){ /* EXIF korup, abaikan */ }
+}
+
+/* ---- PNG chunks ---- */
+function parsePNG(b,res){
+  let i=8;
+  while(i+8<b.length){
+    const len=(b[i]<<24|b[i+1]<<16|b[i+2]<<8|b[i+3])>>>0;
+    const type=str(b,i+4,i+8);
+    const dataStart=i+8;
+    if(type==='tEXt'||type==='iTXt'){
+      const raw=str(b,dataStart,Math.min(dataStart+len,dataStart+6000));
+      const nul=raw.indexOf('\x00');
+      if(nul>0){
+        const key=raw.slice(0,nul);
+        let val=raw.slice(nul+1).replace(/^\x00+|[\x00-\x08]+/g,' ').trim();
+        res.pngText.push({key,val:val.slice(0,400)});
+      }
+    }
+    if(type==='eXIf'){ res.hasExif=true; parseEXIF(b,dataStart,res); }
+    if(type==='IEND') break;
+    i=dataStart+len+4;
+  }
+}
+
+/* ================= RINGKASAN EKSEKUTIF (bahasa awam) ================= */
+$('btnAdvanced').addEventListener('click', ()=>{
+  const r=$('result');
+  const simple=r.classList.toggle('simple');
+  $('btnAdvanced').textContent = simple ? 'Tampilkan Detail Teknis ▾' : 'Sembunyikan Detail Teknis ▴';
+  if(simple && ['ela','noise','chR','chG','chB'].includes(S.mode)) setMode('original');
+});
+
+function renderSummary(){
+  const a=S.analysisData, c2pa=S.c2pa, cmp=S.compareResult;
+  const pts=[]; let level='ok';
+  const add=(ic,txt,lv)=>{pts.push({ic,txt});
+    if(lv==='danger')level='danger';
+    else if(lv==='warn'&&level!=='danger')level='warn';};
+
+  const name1=(S.file&&S.file.name)||'', name2=(S.file2&&S.file2.name)||'';
+
+  /* ---- catatan resmi keaslian (C2PA) ---- */
+  if(c2pa&&c2pa.present&&c2pa.manifests.length){
+    const m=c2pa.manifests[0];
+    if(m.aiGenerated){
+      add('✖',`Gambar ini memiliki catatan resmi bahwa isinya <b>dibuat oleh program AI</b>${m.generator?` bernama <b>${esc(m.generator)}</b>`:''}. Gambar ini bukan tangkapan layar asli.`,'danger');
+    } else if(m.generator||m.signer){
+      add('ℹ',`Gambar tercatat dibuat dengan <b>${esc(m.generator||'(tidak tercantum)')}</b>${m.signer?`, dan dijamin oleh <b>${esc(m.signer.name)}</b>`:''}.`);
+    }
+    if(m.hashValid===false){
+      add('✖','Isi gambar <b>sudah diubah</b> setelah catatan keasliannya dibuat. Gambar tidak lagi sama dengan aslinya.','danger');
+    } else if(m.hashValid===true&&m.sigVerified===true&&!m.aiGenerated){
+      add('✔','Gambar memiliki catatan keaslian resmi dan isinya <b>masih utuh</b>, tidak pernah diubah sejak dibuat.');
+    }
+  }
+
+  /* ---- jejak aplikasi di dalam berkas ---- */
+  if(a){
+    const aiM=a.markers.filter(x=>['sd','mj','dalle','sdui','firefly'].includes(x.id));
+    const edM=a.markers.filter(x=>['photoshop','gimp','canva','picsart','snapseed','photopea','paintnet'].includes(x.id));
+    if(aiM.length) add('✖',`Ditemukan jejak <b>program AI</b> (${esc([...new Set(aiM.map(x=>x.label))].join(', '))}) di dalam berkas. Kemungkinan besar gambar ini dibuat atau diubah oleh AI.`,'danger');
+    if(edM.length||a.hasPhotoshopIRB){
+      const names=[...new Set(edM.map(x=>x.label))]; if(a.hasPhotoshopIRB&&!names.includes('Adobe Photoshop'))names.push('Photoshop');
+      add('✖',`Ditemukan jejak <b>aplikasi penyunting foto</b> (${esc(names.join(', '))}) di dalam berkas. Bukti transaksi yang asli seharusnya tidak pernah melewati aplikasi seperti ini.`,'danger');
+    }
+    if(!aiM.length&&!edM.length&&!a.hasExif&&a.pngText.length===0&&!a.hasXMP&&!(c2pa&&c2pa.present)){
+      add('ℹ','Berkas ini tidak membawa data pendukung apa pun. Hal ini biasa terjadi pada gambar kiriman WhatsApp, sehingga keaslian <b>tidak bisa dipastikan</b> dari berkas saja.','warn');
+    }
+  }
+
+  /* ---- hasil perbandingan dua gambar ---- */
+  if(cmp){
+    add('ℹ',`Dua gambar dibandingkan. Gambar 1: <code>${esc(name1)}</code>. Gambar 2: <code>${esc(name2)}</code>.`);
+    if(cmp.boxes.length){
+      add('✖',`Kedua gambar <b>tidak sama</b>. Ada ${cmp.boxes.length} bagian yang isinya berbeda, sudah ditandai <b>kotak kuning</b> di layar pemeriksaan. Bila kotak itu jatuh pada angka nominal, dapat dipastikan <b>salah satu gambar telah diubah nominalnya</b>.`,'danger');
+    } else {
+      add('✔','Kedua gambar sama persis isinya. Kemungkinan keduanya berasal dari berkas yang sama.');
+    }
+    if(cmp.dimMismatch){
+      add('✖','Ukuran kedua gambar <b>tidak sama</b>, padahal dua tangkapan layar dari ponsel yang sama seharusnya berukuran persis sama. Ini tanda salah satu gambar dibuat ulang oleh komputer.','danger');
+    }
+    if(cmp.rerender&&cmp.boxes.length){
+      add('✖','Pola perubahannya menunjukkan gambar diubah <b>menggunakan AI</b>, bukan penyuntingan biasa. Seluruh gambar dibuat ulang oleh program sehingga jejak editan biasa tidak tersisa.','danger');
+    }
+  }
+
+  if(!pts.length) add('✔','Tidak ditemukan tanda mencurigakan pada berkas ini.');
+
+  /* ---- saran penutup selalu ada ---- */
+  add('➜','Langkah paling pasti untuk memutuskan: cocokkan <b>nomor transaksi</b> ke sistem bank, atau minta <b>bukti mutasi rekening</b>. Nomor transaksi yang sama dengan nominal berbeda berarti salah satunya pasti palsu.');
+
+  const VER={
+    danger:{cls:'v-danger',ic:'⛔',t:'Ditemukan bukti kuat gambar ini TIDAK ASLI atau telah diubah'},
+    warn:{cls:'v-warn',ic:'⚠️',t:'Belum ada bukti manipulasi, tetapi keaslian tidak dapat dipastikan'},
+    ok:{cls:'v-ok',ic:'✅',t:'Tidak ditemukan tanda mencurigakan pada pemeriksaan ini'},
+  }[level];
+
+  $('summary').innerHTML=
+    `<div class="verdict ${VER.cls}"><span class="vicon">${VER.ic}</span><span>${VER.t}</span></div>`+
+    `<ul class="sumlist">${pts.map(p=>{
+      const col=p.ic==='✖'?'var(--danger)':p.ic==='✔'?'var(--ok)':p.ic==='➜'?'var(--tag)':'var(--info)';
+      return `<li><span class="sic" style="color:${col}">${p.ic}</span><span>${p.txt}</span></li>`;
+    }).join('')}</ul>`;
+}
+
+/* ================= PANEL CONTENT CREDENTIALS ================= */
+function statusChip(state, textOk, textBad, textUnk){
+  if(state===true)  return `<span class="chip ok">✓ ${textOk}</span>`;
+  if(state===false) return `<span class="chip bad">✕ ${textBad}</span>`;
+  return `<span class="chip unk">? ${textUnk}</span>`;
+}
+function renderC2PAPanel(r, a){
+  const el=$('c2paPanel');
+  if(!r||!r.present||!r.manifests.length){
+    // fallback: highlight sumber dari jejak penanda metadata biasa
+    let originCard='';
+    if(a){
+      const aiM=a.markers.filter(m=>['sd','mj','dalle','sdui','firefly'].includes(m.id));
+      const edM=a.markers.filter(m=>['photoshop','gimp','canva','picsart','snapseed','photopea','paintnet'].includes(m.id));
+      const src = aiM.length?{name:aiM.map(x=>x.label).join(', '),ai:true}
+                : edM.length?{name:edM.map(x=>x.label).join(', '),ai:false}
+                : a.software?{name:a.software,ai:false}:null;
+      if(src){
+        originCard=`<div class="creator-card">
+          <div class="cc-label">${src.ai?'⚠ JEJAK PEMBUAT (AI GENERATOR)':'JEJAK SOFTWARE PEMBUAT/PENGEDIT'}</div>
+          <div class="cc-name" style="${src.ai?'color:var(--danger)':''}">${esc(src.name)}</div>
+          <div class="cc-by">Terdeteksi dari jejak metadata biasa (bukan C2PA), tidak ditandatangani secara kriptografis, jadi bisa saja dipalsukan/dihapus.</div>
+        </div>`;
+      }
+    }
+    el.innerHTML=originCard+`<div class="empty" style="line-height:1.6">Tidak ada Content Credentials pada file ini.<br>
+    <span style="font-size:12px">Wajar untuk screenshot HP. Namun ingat: WhatsApp/Telegram/media sosial <b>menghapus</b> C2PA saat kompresi, ketiadaannya tidak membuktikan apa pun. Minta file asli dikirim sebagai <i>dokumen</i> agar credentials selamat.</span></div>`;
+    return;
+  }
+  const html=r.manifests.map((m,i)=>{
+    const rows=[];
+    if(m.aiGenerated) rows.push(`<div class="aiflag">🤖 DINYATAKAN DIBUAT / DIEDIT OLEH AI<div class="aisub">digitalSourceType: ${esc(m.aiSource||'')}</div></div>`);
+    // ---- kartu highlight: dibuat oleh siapa/apa ----
+    const creator = m.generator || (m.softwareAgents[0]||null);
+    const signerLine = m.signer
+      ? `Ditandatangani oleh <b>${esc(m.signer.name)}</b>${m.signer.cn&&m.signer.cn!==m.signer.name?' ('+esc(m.signer.cn)+')':''} · penerbit sertifikat: ${esc(m.signer.issuer)}`
+      : 'Penandatangan tidak terbaca';
+    rows.push(`<div class="creator-card">
+      <div class="cc-label">${m.aiGenerated?'⚠ DIBUAT DENGAN (AI GENERATOR)':'DIBUAT DENGAN'}</div>
+      <div class="cc-name" style="${m.aiGenerated?'color:var(--danger)':''}">${esc(creator||'Tidak tercantum di manifest')}</div>
+      <div class="cc-by">${signerLine}</div>
+    </div>`);
+    rows.push(`<table class="meta">
+      ${m.title?`<tr><td>Judul klaim</td><td>${esc(m.title)}</td></tr>`:''}
+      ${m.signer?`<tr><td>Sertifikat berlaku</td><td>${esc(m.signer.notBefore)} s.d. ${esc(m.signer.notAfter)}</td></tr>`:''}
+      ${m.actions.length?`<tr><td>Riwayat aksi</td><td>${m.actions.map(a=>esc(a.action)+(a.agent?', '+esc(String(a.agent)):'')).join('<br>')}</td></tr>`:''}
+      ${m.ingredients?`<tr><td>Bahan (ingredients)</td><td>${m.ingredients} gambar sumber</td></tr>`:''}
+      <tr><td>Integritas konten</td><td>${statusChip(m.hashValid,'Piksel utuh sejak ditandatangani','KONTEN DIUBAH setelah ditandatangani','Tidak dapat dihitung')}</td></tr>
+      <tr><td>Tanda tangan (${esc(m.sigAlg||'?')})</td><td>${statusChip(m.sigVerified,'Terverifikasi kriptografis','TIDAK SAH, manifest dimodifikasi',esc(m.sigWhy||'Tidak dapat diverifikasi'))}</td></tr>
+    </table>`);
+    return `<div class="manifest">${rows.join('')}</div>`;
+  }).join('<hr style="border:none;border-top:1px dashed var(--line);margin:14px 0">');
+  el.innerHTML=html+`<div style="font-size:11.5px;color:var(--dim);margin-top:12px;line-height:1.6">Verifikasi dilakukan lokal di browser (hash konten + tanda tangan COSE via WebCrypto). Catatan: identitas penandatangan <b>belum</b> dicocokkan ke daftar kepercayaan (trust list) resmi C2PA, untuk kasus hukum, silangkan dengan <a href="https://contentcredentials.org/verify" target="_blank" rel="noopener">verifier resmi</a>.</div>`;
+}
+
+/* ================= FINDINGS (heuristik) ================= */
+function renderFindings(a, file, img, c2pa){
+  const F=[];
+  const add=(sev,t,d)=>F.push({sev,t,d});
+
+  // --- Content Credentials (paling otoritatif, taruh paling atas) ---
+  if(c2pa&&c2pa.present&&c2pa.manifests.length){
+    const m=c2pa.manifests[0];
+    if(m.aiGenerated){
+      add('danger','Content Credentials: gambar ini DIBUAT/DIEDIT oleh AI',
+        `Manifest C2PA menyatakan konten berasal dari AI generatif${m.generator?` (<code>${esc(m.generator)}</code>)`:''}. Detail lengkap di panel Content Credentials.`);
+    }
+    if(m.hashValid===false){
+      add('danger','Konten diubah SETELAH ditandatangani',
+        'Hash piksel tidak cocok dengan yang tercatat di manifest C2PA, gambar telah dimodifikasi setelah credentials dibuat.');
+    } else if(m.hashValid===true&&m.sigVerified===true&&!m.aiGenerated){
+      add('ok','Content Credentials valid',
+        `Konten utuh sejak ditandatangani oleh <code>${esc(m.signer?m.signer.name:'?')}</code> dan tanda tangan terverifikasi. (Identitas penandatangan belum dicek ke trust list resmi.)`);
+    }
+  }
+
+  // --- indikasi AI ---
+  const ai=a.markers.filter(m=>['sd','mj','dalle','sdui','firefly'].includes(m.id));
+  if(ai.length){
+    add('danger','Jejak AI generatif ditemukan',
+      `File memuat penanda <code>${esc(ai.map(x=>x.label).join(', '))}</code> di dalam metadatanya. Ini indikasi kuat gambar dibuat/diedit dengan AI generatif.`);
+  }
+  const pngParams=a.pngText.find(t=>/^(parameters|prompt|workflow|Comment)$/i.test(t.key)&&/steps|sampler|seed|prompt|cfg/i.test(t.val));
+  if(pngParams){
+    add('danger','Parameter generator AI tertanam di PNG',
+      `Chunk <code>${esc(pngParams.key)}</code> berisi parameter khas AI generator: <code>${esc(pngParams.val.slice(0,120))}…</code>`);
+  }
+
+  // --- jejak software editing ---
+  const editors=a.markers.filter(m=>['photoshop','gimp','canva','picsart','snapseed','photopea','paintnet'].includes(m.id));
+  if(editors.length||a.hasPhotoshopIRB){
+    const names=[...new Set(editors.map(x=>x.label))];
+    if(a.hasPhotoshopIRB&&!names.includes('Adobe Photoshop')) names.push('Photoshop IRB (APP13)');
+    add('danger','Jejak software editing terdeteksi',
+      `Ditemukan penanda <code>${esc(names.join(', '))}</code>. File ini pernah disimpan/diekspor dari aplikasi edit gambar, <b>patut dicurigai</b> untuk bukti transaksi. Contoh jejak: <code>${esc((editors[0]?.sample||'APP13 Photoshop').slice(0,60))}</code>`);
+  } else if(a.software && !/screenshot|camera|android|ios/i.test(a.software)){
+    add('warn','Tag Software pada EXIF',
+      `EXIF mencatat Software: <code>${esc(a.software)}</code>. Periksa apakah wajar untuk sumber gambar ini.`);
+  }
+
+  // --- jejak C2PA terdeteksi string-scan tapi manifest tak terbaca ---
+  if(a.hasC2PA && !(c2pa&&c2pa.present)){
+    add('warn','Ada jejak C2PA tapi manifest tidak dapat dibaca',
+      'File memuat penanda C2PA/JUMBF namun strukturnya tidak bisa diurai, mungkin terpotong saat konversi/kompresi. Coba dapatkan file aslinya.');
+  }
+
+  // --- tanggal ---
+  const dtMod=a.exif['DateTime (Modifikasi)'], dtOri=a.exif['DateTimeOriginal (Pemotretan)'];
+  if(dtMod&&dtOri&&dtMod!==dtOri){
+    add('warn','Waktu modifikasi ≠ waktu pengambilan',
+      `EXIF: dipotret <code>${esc(dtOri)}</code> tetapi terakhir dimodifikasi <code>${esc(dtMod)}</code>. File pernah disimpan ulang setelah pengambilan.`);
+  }
+
+  // --- EXIF kosong ---
+  if(!a.hasExif && a.pngText.length===0 && !a.hasXMP){
+    add('info','Tidak ada metadata sama sekali',
+      `Umum terjadi pada screenshot HP atau gambar yang dikirim via WhatsApp/Telegram (metadata dihapus platform). Ketiadaan metadata <b>bukan bukti manipulasi</b>, tapi berarti keaslian tidak bisa dipastikan dari metadata, andalkan ELA, inspeksi visual, dan verifikasi mutasi rekening.`);
+  }
+
+  // --- XMP tanpa editor terdeteksi ---
+  if(a.hasXMP && !editors.length){
+    add('warn','Metadata XMP ditemukan',
+      `Gambar membawa XMP (umumnya ditulis software pengolah gambar, bukan aplikasi bank/screenshot bawaan). Periksa tabel metadata &amp; riwayat di bawah.`);
+  }
+
+  // --- kata screenshot ---
+  const sc=a.markers.find(m=>m.id==='screenshot');
+  if(sc && !editors.length && !ai.length){
+    add('ok','Konsisten sebagai screenshot',
+      `Ditemukan penanda "screenshot" dalam nama/metadata dan tidak ada jejak software editing. Tetap lanjutkan pemeriksaan ELA &amp; visual.`);
+  }
+
+  // --- kiriman WhatsApp/Telegram (metadata pasti dihapus platform) ---
+  if(/^(WhatsApp|IMG-\d{8}-WA|photo_\d{4}-\d{2}-\d{2})/i.test(file.name) && !a.hasExif){
+    add('info','Gambar kiriman WhatsApp/Telegram',
+      `Pola nama file dan metadata yang kosong menunjukkan gambar sudah dikompresi ulang oleh platform chat. Analisis ELA jadi kurang sensitif. <b>Tips:</b> minta pengirim mengunggah file asli sebagai <i>dokumen</i> (bukan foto) agar metadata utuh, atau gunakan <b>Mode Banding</b> jika Anda punya versi lain dari bukti yang sama.`);
+  }
+
+  if(!F.length){
+    add('ok','Tidak ada temuan metadata mencolok',
+      'Tidak ditemukan jejak AI, software editing, atau anomali metadata. Ini <b>belum menjamin asli</b>, manipulasi yang rapi menghapus jejaknya. Lanjutkan ke tab <b>ELA</b> dan <b>Noise</b>, lalu inspeksi font nominal dengan kaca pembesar.');
+  }
+
+  S.baseFindingsHTML=F.map(f=>
+    `<div class="finding"><div class="sev ${f.sev}"></div><div><div class="t">${f.t}</div><div class="d">${f.d}</div></div></div>`
+  ).join('');
+  $('findings').innerHTML=S.baseFindingsHTML;
+}
+
+/* ================= METADATA TABLE ================= */
+function renderMetadata(a){
+  const rows=[];
+  rows.push(['Format', a.isJPEG?'JPEG':a.isPNG?'PNG':(S.file.type||'lainnya')]);
+  if(a.isJPEG && a.segments.length) rows.push(['Segmen APP', a.segments.join(', ')]);
+  for(const [k,v] of Object.entries(a.exif)) rows.push([k,v]);
+  for(const t of a.pngText) rows.push(['PNG '+t.key, t.val||'(kosong)']);
+  if(a.xmpSnippet){
+    const m=a.xmpSnippet.match(/(CreatorTool|HistoryAction|stEvt:softwareAgent)="([^"]{0,80})"/g);
+    if(m) rows.push(['XMP (ringkas)', m.slice(0,4).join(' · ')]);
+    else rows.push(['XMP','Ada blok XMP (lihat temuan)']);
+  }
+  if(a.markers.length) rows.push(['Penanda terdeteksi', a.markers.map(m=>m.label).join(', ')]);
+
+  $('metaTable').innerHTML = rows.length
+    ? rows.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${esc(String(v))}</td></tr>`).join('')
+    : `<tr><td colspan="2" class="empty">Tidak ada metadata terbaca.</td></tr>`;
+}
+
+/* ================= UTIL ================= */
+function str(b,s,e){ let out=''; for(let i=s;i<e&&i<b.length;i++) out+=String.fromCharCode(b[i]); return out; }
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmtBytes(n){ return n>1048576?(n/1048576).toFixed(2)+' MB':(n/1024).toFixed(1)+' KB'; }
+</script>
+</body>
+</html>

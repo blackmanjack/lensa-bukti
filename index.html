@@ -24,8 +24,22 @@
   --disp:'Space Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
   --radius:10px;
 }
+html[data-theme="light"]{
+  --ink:#f4f2ec;
+  --panel:#ffffff;
+  --panel2:#eef1f5;
+  --line:#d7dce2;
+  --paper:#161c22;
+  --dim:#5c6c7a;
+  --tag:#c9860b;
+  --tag-ink:#fffaf0;
+  --ok:#1f9d67;
+  --warn:#b7790a;
+  --danger:#d14b3b;
+  --info:#2568c9;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{background:var(--ink);color:var(--paper);font-family:var(--disp);font-size:15px;line-height:1.55}
+html,body{background:var(--ink);color:var(--paper);font-family:var(--disp);font-size:15px;line-height:1.55;transition:background .2s ease,color .2s ease}
 ::selection{background:var(--tag);color:var(--tag-ink)}
 a{color:var(--info)}
 button{font-family:inherit}
@@ -38,6 +52,7 @@ header::after{content:"";position:absolute;inset:0;pointer-events:none;
   background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
   background-size:44px 44px;opacity:.16}
 .brandrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:relative;z-index:1}
+@media(max-width:520px){.themebtn{margin-left:0}}
 .badge{background:var(--tag);color:var(--tag-ink);font-family:var(--mono);font-weight:600;font-size:12px;
   padding:6px 10px;border-radius:4px;letter-spacing:.08em;transform:rotate(-2deg);box-shadow:0 2px 0 rgba(0,0,0,.35)}
 h1{font-size:clamp(24px,4vw,36px);font-weight:700;letter-spacing:-.01em}
@@ -138,6 +153,14 @@ details.tips li{margin-bottom:6px}
 
 footer{border-top:1px solid var(--line);margin-top:30px;padding:20px 0 34px;color:var(--dim);font-size:12.5px;line-height:1.7}
 footer .wrap{max-width:1180px}
+.footcredit{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);font-family:var(--mono);font-size:11.5px;color:var(--dim);letter-spacing:.02em}
+
+/* ---------- theme toggle ---------- */
+.themebtn{position:relative;z-index:1;margin-left:auto;background:var(--panel);border:1px solid var(--line);
+  color:var(--paper);border-radius:999px;padding:7px 14px 7px 12px;font-size:13px;font-family:var(--mono);
+  cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:border-color .15s}
+.themebtn:hover{border-color:var(--tag)}
+.themebtn .ic{font-size:14px;line-height:1}
 
 #btnReset{background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:6px;
   padding:8px 14px;font-size:13px;cursor:pointer;font-family:var(--mono);margin-bottom:16px}
@@ -184,6 +207,7 @@ ul.sumlist li code{font-family:var(--mono);font-size:12.5px;background:rgba(255,
     <div class="brandrow">
       <span class="badge">BARANG BUKTI № 001</span>
       <h1>LensaBukti · Lab Forensik Gambar</h1>
+      <button class="themebtn" id="themeToggle" type="button"><span class="ic" id="themeIcon">🌙</span><span id="themeLabel">Mode Gelap</span></button>
     </div>
     <p class="sub">Periksa keaslian screenshot bukti transaksi: deteksi jejak editing (Photoshop/GIMP), indikasi AI generatif, analisis metadata EXIF &amp; C2PA, dan <em>Error Level Analysis</em> untuk menemukan area nominal yang diubah.</p>
     <span class="privasi"><span class="dotok"></span> 100% diproses di browser Anda, file tidak pernah dikirim ke server</span>
@@ -214,7 +238,7 @@ ul.sumlist li code{font-family:var(--mono);font-size:12.5px;background:rgba(255,
         <h2><span class="num">01</span> Meja Pemeriksaan</h2>
         <div class="filechip" id="fileInfo"></div>
         <div class="tabs" id="tabs">
-          <button class="tab active" data-mode="original">Asli</button>
+          <button class="tab active" data-mode="original">Tampilan Awal</button>
           <button class="tab tech" data-mode="ela">ELA</button>
           <button class="tab tech" data-mode="noise">Noise</button>
           <button class="tab tech" data-mode="chR">Kanal R</button>
@@ -263,7 +287,7 @@ ul.sumlist li code{font-family:var(--mono);font-size:12.5px;background:rgba(255,
         <p><strong>Mode Banding (paling akurat):</strong> jika Anda punya dua versi bukti yang sama (mis. dari pengirim dan dari sistem Anda), mode ini melokalisasi persis piksel mana yang berubah, bahkan pada gambar WhatsApp tanpa metadata. Tiga pola hasilnya: <strong>(a)</strong> kotak kuning tepat di nominal = nominal diganti; <strong>(b)</strong> dimensi kedua gambar berbeda walau 1 piksel = salah satu di-render ulang; <strong>(c)</strong> semua teks "bergetar" halus tapi background identik = ciri khas editing AI generatif yang me-render ulang seluruh gambar. Pola (c) inilah alasan ELA satu-gambar sering gagal mendeteksi editan AI: tidak ada tambalan lokal, seluruh piksel sama-sama baru.</p>
         <p><strong>Membaca ELA (Error Level Analysis):</strong> gambar dikompresi ulang sebagai JPEG, lalu selisihnya diperkuat. Area yang <strong>baru diedit</strong> (mis. angka nominal yang diganti) cenderung tampil <strong>lebih terang/berbeda tekstur</strong> dibanding teks lain yang setara. Perhatikan: semua teks tajam memang lebih terang dari background, yang mencurigakan adalah jika <em>satu baris nominal</em> menyala berbeda dibanding teks lain yang sejenis. ELA kurang andal pada gambar yang sudah dikompresi berkali-kali (mis. dikirim via WhatsApp).</p>
         <p><strong>Membaca Noise:</strong> pola noise/bintik seharusnya merata. "Tambalan" yang terlalu halus atau terlalu kasar di sekitar nominal bisa menandakan penggunaan brush, clone stamp, atau AI inpainting.</p>
-        <p><strong>Inspeksi manual dengan kaca pembesar (mode Asli):</strong></p>
+        <p><strong>Inspeksi manual dengan kaca pembesar (mode Tampilan Awal):</strong></p>
         <ul>
           <li><strong>Tipografi:</strong> bandingkan font, ketebalan, dan jarak antar-huruf (kerning) angka nominal dengan angka lain di layar (tanggal, no. referensi). Font sistem bank sulit ditiru persis.</li>
           <li><strong>Artefak piksel:</strong> tepi angka yang diubah sering lebih buram, pecah, atau ber-"kotak" dibanding teks lain.</li>
@@ -280,11 +304,41 @@ ul.sumlist li code{font-family:var(--mono);font-size:12.5px;background:rgba(255,
 <footer>
   <div class="wrap">
     <strong style="color:var(--paper)">Batasan penting:</strong> semua metode di sini bersifat indikatif (forensik heuristik), bukan bukti hukum yang konklusif. Manipulasi yang rapi bisa lolos, dan gambar asli yang dikompresi berulang bisa tampak "mencurigakan". Untuk keputusan penting (penipuan, sengketa pembayaran), selalu verifikasi ke sumber utamanya: mutasi rekening, sistem payment gateway, atau pihak bank.
+    <div class="footcredit">Faiz Muhammad 'Alauddin &middot; <span id="copyYear"></span></div>
   </div>
 </footer>
 
 <script>
 "use strict";
+
+document.getElementById('copyYear').textContent = '© ' + new Date().getFullYear();
+
+/* ================= TEMA TERANG / GELAP ================= */
+(function initTheme(){
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const icon = document.getElementById('themeIcon');
+  const label = document.getElementById('themeLabel');
+
+  function apply(theme){
+    if(theme==='light'){ root.setAttribute('data-theme','light'); icon.textContent='☀️'; label.textContent='Mode Terang'; }
+    else{ root.removeAttribute('data-theme'); icon.textContent='🌙'; label.textContent='Mode Gelap'; }
+  }
+
+  let saved=null;
+  try{ saved = localStorage.getItem('lensabukti-theme'); }catch(e){}
+  if(!saved){
+    saved = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+  }
+  apply(saved);
+
+  btn.addEventListener('click', ()=>{
+    const current = root.getAttribute('data-theme')==='light' ? 'light' : 'dark';
+    const next = current==='light' ? 'dark' : 'light';
+    apply(next);
+    try{ localStorage.setItem('lensabukti-theme', next); }catch(e){}
+  });
+})();
 
 /* ================= C2PA NATIVE PARSER (murni JS, tanpa dependensi) =================
    Membaca Content Credentials: JUMBF -> manifest -> claim/assertions/signature.
@@ -739,7 +793,7 @@ document.querySelectorAll('.tab').forEach(t=>{
 });
 
 const MODE_HELP = {
-  original:'<b>Mode Asli.</b> Gunakan kaca pembesar untuk memeriksa font, kerning, dan tepi piksel pada angka nominal. Bandingkan dengan teks lain di layar yang seharusnya memakai font sama.',
+  original:'<b>Tampilan Awal.</b> Ini adalah gambar hasil upload Anda, ditampilkan apa adanya, belum melalui proses analisis apa pun. Gunakan kaca pembesar untuk memeriksa font, kerning, dan tepi piksel pada angka nominal. Bandingkan dengan teks lain di layar yang seharusnya memakai font sama.',
   ela:'<b>Mode ELA.</b> Area yang menyala jauh lebih terang dibanding elemen sejenis di sekitarnya bisa menandakan hasil editan/tempelan baru. Naikkan <b>Amplifikasi</b> bila gambar tampak gelap; coba beberapa nilai <b>Kualitas JPEG</b>.',
   noise:'<b>Mode Noise.</b> Menampilkan komponen frekuensi tinggi. Cari "tambalan" yang polanya berbeda (terlalu halus/kasar) di sekitar nominal, jejak brush, clone stamp, atau inpainting AI.',
   chR:'<b>Kanal Merah.</b> Melihat satu kanal warna terpisah bisa memunculkan bayangan penghapusan yang tak terlihat pada gambar penuh.',
